@@ -1,0 +1,861 @@
+package com.werchat.commands;
+
+import com.hypixel.hytale.protocol.GameMode;
+import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.command.system.CommandContext;
+import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
+import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.werchat.WerchatPlugin;
+import com.werchat.channels.Channel;
+import com.werchat.channels.ChannelManager;
+import com.werchat.storage.PlayerDataManager;
+
+import javax.annotation.Nonnull;
+import java.util.UUID;
+
+/**
+ * /ch command handler
+ */
+public class ChannelCommand extends CommandBase {
+
+    private final WerchatPlugin plugin;
+    private final ChannelManager channelManager;
+    private final PlayerDataManager playerDataManager;
+
+    /**
+     * Check if sender has a werchat permission, including wildcard support
+     */
+    private boolean hasWerchatPermission(CommandContext ctx, String permission) {
+        return ctx.sender().hasPermission(permission)
+            || ctx.sender().hasPermission("werchat.*")
+            || ctx.sender().hasPermission("*");
+    }
+
+    public ChannelCommand(WerchatPlugin plugin) {
+        super("ch", "Channel chat system", false);
+        this.plugin = plugin;
+        this.channelManager = plugin.getChannelManager();
+        this.playerDataManager = plugin.getPlayerDataManager();
+
+        // Available to all players in Adventure mode
+        this.setPermissionGroup(GameMode.Adventure);
+
+        // Allow any arguments - we parse them manually
+        this.setAllowsExtraArguments(true);
+
+        this.addAliases("channel", "chat", "werchat");
+    }
+
+    @Override
+    protected void executeSync(@Nonnull CommandContext ctx) {
+        if (!ctx.isPlayer()) {
+            return;
+        }
+
+        UUID playerId = ctx.sender().getUuid();
+        PlayerRef player = playerDataManager.getOnlinePlayer(playerId);
+        if (player == null) {
+            ctx.sendMessage(Message.raw("Player not found").color("#FF5555"));
+            return;
+        }
+
+        // Parse raw input: "ch help" -> ["help"], "ch join global" -> ["join", "global"]
+        String input = ctx.getInputString();
+        String[] parts = input.trim().split("\\s+");
+
+        // parts[0] is "ch", rest are arguments
+        String cmd = parts.length > 1 ? parts[1].toLowerCase() : "";
+        String arg1 = parts.length > 2 ? parts[2] : null;
+        String arg2 = parts.length > 3 ? parts[3] : null;
+
+        // Get everything after the subcommand (for broadcast message)
+        String rawArgs = "";
+        if (parts.length > 2) {
+            int cmdEnd = input.toLowerCase().indexOf(cmd) + cmd.length();
+            rawArgs = input.substring(cmdEnd).trim();
+        }
+
+        // No args = show help
+        if (cmd.isEmpty()) {
+            showHelp(ctx);
+            return;
+        }
+
+        // Check for known subcommands first
+        switch (cmd) {
+            case "help", "?" -> { showHelp(ctx); return; }
+            case "list", "l" -> { listChannels(ctx, playerId); return; }
+            case "join", "j" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch join <channel>").color("#FF5555"));
+                    return;
+                }
+                joinChannel(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "leave" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch leave <channel>").color("#FF5555"));
+                    return;
+                }
+                leaveChannel(ctx, playerId, arg1);
+                return;
+            }
+            case "create" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch create <name> [nick]").color("#FF5555"));
+                    return;
+                }
+                createChannel(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "who", "w" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch who <channel>").color("#FF5555"));
+                    return;
+                }
+                showMembers(ctx, arg1);
+                return;
+            }
+            case "color" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch color <channel> <#hex>").color("#FF5555"));
+                    return;
+                }
+                setChannelColor(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "password", "pass" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch password <channel> [password]").color("#FF5555"));
+                    return;
+                }
+                setChannelPassword(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "nick" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch nick <channel> <nick>").color("#FF5555"));
+                    return;
+                }
+                setChannelNick(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "info" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch info <channel>").color("#FF5555"));
+                    return;
+                }
+                showChannelInfo(ctx, arg1);
+                return;
+            }
+            case "rename" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch rename <channel> <newname>").color("#FF5555"));
+                    return;
+                }
+                renameChannel(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "remove", "delete", "del" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch remove <channel>").color("#FF5555"));
+                    return;
+                }
+                removeChannel(ctx, playerId, arg1);
+                return;
+            }
+            case "mod", "moderator" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch mod <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                addModerator(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "unmod" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch unmod <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                removeModerator(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "distance", "range" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch distance <channel> <blocks>").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Use 0 for global (unlimited range)").color("#AAAAAA"));
+                    return;
+                }
+                setChannelDistance(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "ban" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch ban <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                banPlayer(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "unban" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch unban <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                unbanPlayer(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "mute" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch mute <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                mutePlayer(ctx, playerId, arg1, arg2);
+                return;
+            }
+            case "unmute" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch unmute <channel> <player>").color("#FF5555"));
+                    return;
+                }
+                unmutePlayer(ctx, playerId, arg1, arg2);
+                return;
+            }
+        }
+
+        // Not a known command - try to switch to a channel by name/nick
+        switchToChannel(ctx, playerId, cmd);
+    }
+
+    private void switchToChannel(CommandContext ctx, UUID playerId, String input) {
+        Channel channel = channelManager.findChannel(input);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Unknown channel: " + input).color("#FF5555"));
+            ctx.sendMessage(Message.raw("Use /ch list to see available channels").color("#AAAAAA"));
+            return;
+        }
+
+        // Auto-join if not a member
+        if (!channel.isMember(playerId)) {
+            if (channel.isBanned(playerId)) {
+                ctx.sendMessage(Message.raw("You are banned from " + channel.getName()).color("#FF5555"));
+                return;
+            }
+            if (channel.hasPassword()) {
+                ctx.sendMessage(Message.raw("Channel requires password: /ch join " + channel.getName() + " <password>").color("#FF5555"));
+                return;
+            }
+            channel.addMember(playerId);
+        }
+
+        // Focus on this channel
+        playerDataManager.setFocusedChannel(playerId, channel.getName());
+        ctx.sendMessage(Message.join(
+            Message.raw("Now chatting in ").color("#AAAAAA"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void showHelp(CommandContext ctx) {
+        ctx.sendMessage(Message.raw("").color("#000000"));
+        ctx.sendMessage(Message.raw("  Werchat - Channel Chat").color("#55FF55").bold(true));
+        ctx.sendMessage(Message.raw("").color("#000000"));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch <name>").color("#FFFFFF"),
+            Message.raw("  Switch channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch list").color("#FFFFFF"),
+            Message.raw("  List channels").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch join <name>").color("#FFFFFF"),
+            Message.raw("  Join channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch leave <name>").color("#FFFFFF"),
+            Message.raw("  Leave channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch who <name>").color("#FFFFFF"),
+            Message.raw("  Show members").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch info <name>").color("#FFFFFF"),
+            Message.raw("  Channel info").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.raw("").color("#000000"));
+        ctx.sendMessage(Message.raw("  Channel Management (mods)").color("#FFAA00"));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch create <name>").color("#FFFFFF"),
+            Message.raw("  Create channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch color <ch> <#hex>").color("#FFFFFF"),
+            Message.raw("  Set color").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch nick <ch> <nick>").color("#FFFFFF"),
+            Message.raw("  Set shortcut").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch password <ch> [pw]").color("#FFFFFF"),
+            Message.raw("  Set/clear password").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch rename <ch> <name>").color("#FFFFFF"),
+            Message.raw("  Rename channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch remove <ch>").color("#FFFFFF"),
+            Message.raw("  Delete channel").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch mod <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Add moderator").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch unmod <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Remove moderator").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch distance <ch> <blocks>").color("#FFFFFF"),
+            Message.raw("  Set range (0=global)").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch ban <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Ban player").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch unban <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Unban player").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch mute <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Mute player").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch unmute <ch> <player>").color("#FFFFFF"),
+            Message.raw("  Unmute player").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.raw("").color("#000000"));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /msg <player> <text>").color("#FFFFFF"),
+            Message.raw("  Private message").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /r <text>").color("#FFFFFF"),
+            Message.raw("  Reply to PM").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ignore <player>").color("#FFFFFF"),
+            Message.raw("  Toggle ignore").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ignorelist").color("#FFFFFF"),
+            Message.raw("  Show ignored").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.raw("").color("#000000"));
+    }
+
+    private void listChannels(CommandContext ctx, UUID playerId) {
+        ctx.sendMessage(Message.raw("=== Channels ===").color("#55FF55"));
+        String focused = playerDataManager.getFocusedChannel(playerId);
+        for (Channel ch : channelManager.getAllChannels()) {
+            String status = ch.isMember(playerId) ? " [Joined]" : "";
+            if (ch.getName().equalsIgnoreCase(focused)) status += " [*]";
+            ctx.sendMessage(Message.raw("[" + ch.getNick() + "] " + ch.getName() + " (" + ch.getMemberCount() + ")" + status).color(ch.getColorHex()));
+        }
+    }
+
+    private void joinChannel(CommandContext ctx, UUID playerId, String channelName, String password) {
+        Channel channel = channelManager.getChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF0000"));
+            return;
+        }
+        if (channel.isBanned(playerId)) {
+            ctx.sendMessage(Message.raw("You are banned from this channel").color("#FF0000"));
+            return;
+        }
+        if (channel.isMember(playerId)) {
+            ctx.sendMessage(Message.raw("Already in channel: " + channel.getName()).color("#FFFF55"));
+            return;
+        }
+        if (channel.hasPassword() && !channel.checkPassword(password)) {
+            ctx.sendMessage(Message.raw("Wrong password").color("#FF0000"));
+            return;
+        }
+        channel.addMember(playerId);
+        playerDataManager.setFocusedChannel(playerId, channel.getName());
+        ctx.sendMessage(Message.raw("Joined and focused: " + channel.getName()).color("#55FF55"));
+    }
+
+    private void leaveChannel(CommandContext ctx, UUID playerId, String channelName) {
+        Channel channel = channelManager.getChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF0000"));
+            return;
+        }
+        if (!channel.isMember(playerId)) {
+            ctx.sendMessage(Message.raw("Not in channel: " + channel.getName()).color("#FFFF55"));
+            return;
+        }
+        channel.removeMember(playerId);
+        ctx.sendMessage(Message.raw("Left: " + channel.getName()).color("#55FF55"));
+    }
+
+    private void focusChannel(CommandContext ctx, UUID playerId, String channelName) {
+        Channel channel = channelManager.getChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF0000"));
+            return;
+        }
+        if (!channel.isMember(playerId)) {
+            ctx.sendMessage(Message.raw("Join channel first: " + channel.getName()).color("#FFFF55"));
+            return;
+        }
+        playerDataManager.setFocusedChannel(playerId, channel.getName());
+        ctx.sendMessage(Message.raw("Now speaking in: " + channel.getName()).color("#55FF55"));
+    }
+
+    private void createChannel(CommandContext ctx, UUID playerId, String name, String nick) {
+        // Requires werchat.create permission
+        if (!hasWerchatPermission(ctx, "werchat.create")) {
+            ctx.sendMessage(Message.raw("You don't have permission to create channels").color("#FF5555"));
+            return;
+        }
+        if (channelManager.channelExists(name)) {
+            ctx.sendMessage(Message.raw("Channel already exists: " + name).color("#FF0000"));
+            return;
+        }
+        Channel channel = channelManager.createChannel(name, playerId);
+        if (nick != null && !nick.isEmpty()) {
+            channel.setNick(nick);
+        }
+        channel.addMember(playerId);
+        playerDataManager.setFocusedChannel(playerId, channel.getName());
+        ctx.sendMessage(Message.raw("Created channel: " + channel.getName()).color("#55FF55"));
+    }
+
+    private void showMembers(CommandContext ctx, String channelName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+
+        ctx.sendMessage(Message.raw(channel.getName() + " - " + channel.getMemberCount() + " members").color(channel.getColorHex()));
+
+        StringBuilder online = new StringBuilder();
+        StringBuilder offline = new StringBuilder();
+        int onlineCount = 0;
+
+        for (UUID memberId : channel.getMembers()) {
+            PlayerRef member = playerDataManager.getOnlinePlayer(memberId);
+            if (member != null) {
+                if (online.length() > 0) online.append(", ");
+                online.append(member.getUsername());
+                onlineCount++;
+            }
+        }
+
+        if (onlineCount > 0) {
+            ctx.sendMessage(Message.join(
+                Message.raw("  Online: ").color("#55FF55"),
+                Message.raw(online.toString()).color("#FFFFFF")
+            ));
+        } else {
+            ctx.sendMessage(Message.raw("  No members online").color("#AAAAAA"));
+        }
+    }
+
+    private void setChannelColor(CommandContext ctx, UUID playerId, String channelName, String hexColor) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.color") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        try {
+            String hex = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+            int r = Integer.parseInt(hex.substring(0, 2), 16);
+            int g = Integer.parseInt(hex.substring(2, 4), 16);
+            int b = Integer.parseInt(hex.substring(4, 6), 16);
+            channel.setColor(new java.awt.Color(r, g, b));
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.join(
+                Message.raw("Color set to ").color("#AAAAAA"),
+                Message.raw(channel.getColorHex()).color(channel.getColorHex())
+            ));
+        } catch (Exception e) {
+            ctx.sendMessage(Message.raw("Invalid color. Use hex format: #FF5555").color("#FF5555"));
+        }
+    }
+
+    private void setChannelPassword(CommandContext ctx, UUID playerId, String channelName, String password) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.password") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        if (password == null || password.isEmpty()) {
+            channel.setPassword(null);
+            ctx.sendMessage(Message.raw("Password removed from " + channel.getName()).color("#55FF55"));
+        } else {
+            channel.setPassword(password);
+            ctx.sendMessage(Message.raw("Password set for " + channel.getName()).color("#55FF55"));
+        }
+        channelManager.saveChannels();
+    }
+
+    private void setChannelNick(CommandContext ctx, UUID playerId, String channelName, String nick) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.nick") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        channel.setNick(nick);
+        channelManager.saveChannels();
+        ctx.sendMessage(Message.raw("Nick set to: " + nick).color("#55FF55"));
+    }
+
+    private void showChannelInfo(CommandContext ctx, String channelName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        ctx.sendMessage(Message.raw("").color("#000000"));
+        ctx.sendMessage(Message.raw("  " + channel.getName()).color(channel.getColorHex()).bold(true));
+
+        // Show owner
+        String ownerName = "None";
+        if (channel.getOwner() != null) {
+            PlayerRef owner = playerDataManager.getOnlinePlayer(channel.getOwner());
+            ownerName = owner != null ? owner.getUsername() : channel.getOwner().toString().substring(0, 8) + "...";
+        }
+        ctx.sendMessage(Message.join(
+            Message.raw("  Owner: ").color("#AAAAAA"),
+            Message.raw(ownerName).color("#FFAA00")
+        ));
+
+        ctx.sendMessage(Message.join(
+            Message.raw("  Nick: ").color("#AAAAAA"),
+            Message.raw(channel.getNick()).color("#FFFFFF")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  Color: ").color("#AAAAAA"),
+            Message.raw(channel.getColorHex()).color(channel.getColorHex())
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  Members: ").color("#AAAAAA"),
+            Message.raw(String.valueOf(channel.getMemberCount())).color("#FFFFFF")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  Password: ").color("#AAAAAA"),
+            Message.raw(channel.hasPassword() ? "Yes" : "No").color("#FFFFFF")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  Range: ").color("#AAAAAA"),
+            Message.raw(channel.isGlobal() ? "Global" : channel.getDistance() + " blocks").color("#FFFFFF")
+        ));
+
+        // Show moderators
+        StringBuilder modNames = new StringBuilder();
+        for (UUID modId : channel.getModerators()) {
+            PlayerRef mod = playerDataManager.getOnlinePlayer(modId);
+            if (modNames.length() > 0) modNames.append(", ");
+            modNames.append(mod != null ? mod.getUsername() : modId.toString().substring(0, 8));
+        }
+        ctx.sendMessage(Message.join(
+            Message.raw("  Moderators: ").color("#AAAAAA"),
+            Message.raw(modNames.length() > 0 ? modNames.toString() : "None").color("#55FF55")
+        ));
+        ctx.sendMessage(Message.raw("").color("#000000"));
+    }
+
+    private void removeChannel(CommandContext ctx, UUID playerId, String channelName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.remove") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        if (channel.isDefault()) {
+            ctx.sendMessage(Message.raw("Cannot delete the default channel").color("#FF5555"));
+            return;
+        }
+        String name = channel.getName();
+        if (channelManager.deleteChannel(name)) {
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.raw("Deleted channel: " + name).color("#55FF55"));
+        } else {
+            ctx.sendMessage(Message.raw("Cannot delete channel (must have at least one channel)").color("#FF5555"));
+        }
+    }
+
+    private void renameChannel(CommandContext ctx, UUID playerId, String channelName, String newName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.rename") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        if (channelManager.channelExists(newName)) {
+            ctx.sendMessage(Message.raw("A channel with that name already exists").color("#FF5555"));
+            return;
+        }
+        String oldName = channel.getName();
+        if (channelManager.renameChannel(oldName, newName)) {
+            ctx.sendMessage(Message.join(
+                Message.raw("Channel renamed: ").color("#55FF55"),
+                Message.raw(oldName).color("#AAAAAA"),
+                Message.raw(" -> ").color("#55FF55"),
+                Message.raw(newName).color(channel.getColorHex())
+            ));
+        } else {
+            ctx.sendMessage(Message.raw("Failed to rename channel").color("#FF5555"));
+        }
+    }
+
+    private void addModerator(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.mod") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        // Find player by name
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (channel.isModerator(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is already a moderator").color("#FFFF55"));
+            return;
+        }
+        channel.addModerator(targetId);
+        channelManager.saveChannels();
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" is now a moderator of ").color("#55FF55"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void removeModerator(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.mod") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        // Find player by name
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (!channel.isModerator(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is not a moderator").color("#FFFF55"));
+            return;
+        }
+        channel.removeModerator(targetId);
+        channelManager.saveChannels();
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" is no longer a moderator of ").color("#55FF55"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void setChannelDistance(CommandContext ctx, UUID playerId, String channelName, String distanceStr) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.distance") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        try {
+            int distance = Integer.parseInt(distanceStr);
+            if (distance < 0) {
+                ctx.sendMessage(Message.raw("Distance must be 0 or greater").color("#FF5555"));
+                return;
+            }
+            channel.setDistance(distance);
+            channelManager.saveChannels();
+            if (distance == 0) {
+                ctx.sendMessage(Message.join(
+                    Message.raw(channel.getName()).color(channel.getColorHex()),
+                    Message.raw(" is now a global channel").color("#55FF55")
+                ));
+            } else {
+                ctx.sendMessage(Message.join(
+                    Message.raw(channel.getName()).color(channel.getColorHex()),
+                    Message.raw(" range set to ").color("#55FF55"),
+                    Message.raw(distance + " blocks").color("#FFFFFF")
+                ));
+            }
+        } catch (NumberFormatException e) {
+            ctx.sendMessage(Message.raw("Invalid number: " + distanceStr).color("#FF5555"));
+        }
+    }
+
+    private void banPlayer(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.ban") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (channel.isBanned(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is already banned").color("#FFFF55"));
+            return;
+        }
+        channel.ban(targetId);
+        channelManager.saveChannels();
+
+        // Notify the banned player
+        String banMsg = plugin.getConfig().getBanMessage().replace("{channel}", channel.getName());
+        target.sendMessage(Message.raw(banMsg).color("#FF5555"));
+
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" has been banned from ").color("#FF5555"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void unbanPlayer(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.ban") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (!channel.isBanned(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is not banned").color("#FFFF55"));
+            return;
+        }
+        channel.unban(targetId);
+        channelManager.saveChannels();
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" has been unbanned from ").color("#55FF55"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void mutePlayer(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.mute") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (channel.isMuted(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is already muted").color("#FFFF55"));
+            return;
+        }
+        channel.mute(targetId);
+        channelManager.saveChannels();
+
+        // Notify the muted player
+        String muteMsg = plugin.getConfig().getMuteMessage().replace("{channel}", channel.getName());
+        target.sendMessage(Message.raw(muteMsg).color("#FF5555"));
+
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" has been muted in ").color("#FF5555"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+    private void unmutePlayer(CommandContext ctx, UUID playerId, String channelName, String playerName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.mute") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
+            return;
+        }
+        PlayerRef target = playerDataManager.findPlayerByName(playerName);
+        if (target == null) {
+            ctx.sendMessage(Message.raw("Player not found: " + playerName).color("#FF5555"));
+            return;
+        }
+        UUID targetId = target.getUuid();
+        if (!channel.isMuted(targetId)) {
+            ctx.sendMessage(Message.raw(playerName + " is not muted").color("#FFFF55"));
+            return;
+        }
+        channel.unmute(targetId);
+        channelManager.saveChannels();
+        ctx.sendMessage(Message.join(
+            Message.raw(playerName).color("#FFFFFF"),
+            Message.raw(" has been unmuted in ").color("#55FF55"),
+            Message.raw(channel.getName()).color(channel.getColorHex())
+        ));
+    }
+
+}

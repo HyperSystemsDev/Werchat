@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Hytale Server JAR (not committed - download separately)
+libs/*.jar
+!libs/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Bundled JDK (large, download separately)
+jdk-*/
