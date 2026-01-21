@@ -85,6 +85,7 @@ public class ChatListener {
             plugin.getLogger().at(Level.INFO).log("HyperPerms integration enabled for prefix/suffix display");
         } catch (Exception e) {
             hyperPermsAvailable = false;
+            plugin.getLogger().at(Level.WARNING).log("HyperPerms integration failed: %s", e.getMessage());
         }
     }
 
@@ -134,7 +135,9 @@ public class ChatListener {
                 if (prefix != null && !prefix.isEmpty()) {
                     return prefix;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                plugin.getLogger().at(Level.WARNING).log("HyperPerms prefix error: %s", e.getMessage());
+            }
         }
 
         // Try LuckPerms
@@ -202,12 +205,12 @@ public class ChatListener {
         hyFactionsChecked = true;
 
         try {
-            Class<?> claimManagerClass = Class.forName("kaws.hyfaction.claims.ClaimManager");
+            Class<?> claimManagerClass = Class.forName("com.kaws.hyfaction.claims.ClaimManager");
             claimManagerGetInstance = claimManagerClass.getMethod("getInstance");
 
             getFactionFromPlayer = claimManagerClass.getMethod("getFactionFromPlayer", UUID.class);
 
-            Class<?> factionInfoClass = Class.forName("kaws.hyfaction.factions.FactionInfo");
+            Class<?> factionInfoClass = Class.forName("com.kaws.hyfaction.factions.FactionInfo");
             factionGetName = factionInfoClass.getMethod("getName");
             factionGetColor = factionInfoClass.getMethod("getColor");
 
@@ -215,6 +218,7 @@ public class ChatListener {
             plugin.getLogger().at(Level.INFO).log("HyFactions integration enabled for faction tag display");
         } catch (Exception e) {
             hyFactionsAvailable = false;
+            plugin.getLogger().at(Level.WARNING).log("HyFactions integration failed: %s", e.getMessage());
         }
     }
 
@@ -468,16 +472,24 @@ public class ChatListener {
             parts.add(parseColoredString(factionTag));
         }
 
-        // Channel tag
-        parts.add(Message.raw("[" + channel.getNick() + "] ").color(channel.getColorHex()));
+        // Channel tag (skip if nick is empty)
+        String channelNick = channel.getNick();
+        if (channelNick != null && !channelNick.isEmpty()) {
+            parts.add(Message.raw("[" + channelNick + "] ").color(channel.getColorHex()));
+        }
 
         // Prefix from HyperPerms (if any) - already contains color codes
         if (!prefix.isEmpty()) {
             parts.add(parseColoredString(prefix));
         }
 
-        // Player name
-        parts.add(Message.raw(displayName).color(nickColor));
+        // Player name (with gradient support)
+        String gradientEnd = playerDataManager.getNickGradientEnd(senderId);
+        if (gradientEnd != null && nickColor != null) {
+            parts.add(createGradientMessage(displayName, nickColor, gradientEnd));
+        } else {
+            parts.add(Message.raw(displayName).color(nickColor));
+        }
 
         // Suffix from HyperPerms (if any)
         if (!suffix.isEmpty()) {
@@ -485,7 +497,7 @@ public class ChatListener {
         }
 
         // Colon separator
-        parts.add(Message.raw(": ").color("#AAAAAA"));
+        parts.add(Message.raw(": ").color("#FFFFFF"));
 
         // Message text
         if (isMentioned && config.isMentionsEnabled()) {
@@ -625,6 +637,40 @@ public class ChatListener {
             case 'f' -> "#FFFFFF"; // White
             default -> null;
         };
+    }
+
+    /**
+     * Create a gradient-colored message where each character transitions from startColor to endColor.
+     */
+    private Message createGradientMessage(String text, String startColor, String endColor) {
+        if (text == null || text.isEmpty()) {
+            return Message.raw("");
+        }
+        if (text.length() == 1) {
+            return Message.raw(text).color(startColor);
+        }
+
+        // Parse hex colors
+        int startR = Integer.parseInt(startColor.substring(1, 3), 16);
+        int startG = Integer.parseInt(startColor.substring(3, 5), 16);
+        int startB = Integer.parseInt(startColor.substring(5, 7), 16);
+        int endR = Integer.parseInt(endColor.substring(1, 3), 16);
+        int endG = Integer.parseInt(endColor.substring(3, 5), 16);
+        int endB = Integer.parseInt(endColor.substring(5, 7), 16);
+
+        List<Message> parts = new ArrayList<>();
+        int len = text.length();
+
+        for (int i = 0; i < len; i++) {
+            float ratio = (float) i / (len - 1);
+            int r = Math.round(startR + (endR - startR) * ratio);
+            int g = Math.round(startG + (endG - startG) * ratio);
+            int b = Math.round(startB + (endB - startB) * ratio);
+            String color = String.format("#%02X%02X%02X", r, g, b);
+            parts.add(Message.raw(String.valueOf(text.charAt(i))).color(color));
+        }
+
+        return Message.join(parts.toArray(new Message[0]));
     }
 
     public void sendPrivateMessage(PlayerRef sender, PlayerRef recipient, String message) {

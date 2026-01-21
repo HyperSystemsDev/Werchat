@@ -71,6 +71,7 @@ public class ChannelCommand extends CommandBase {
         String cmd = parts.length > 1 ? parts[1].toLowerCase() : "";
         String arg1 = parts.length > 2 ? parts[2] : null;
         String arg2 = parts.length > 3 ? parts[3] : null;
+        String arg3 = parts.length > 4 ? parts[4] : null;
 
         // Get everything after the subcommand (for broadcast message)
         String rawArgs = "";
@@ -228,11 +229,11 @@ public class ChannelCommand extends CommandBase {
             }
             case "playernick", "pnick", "nickname" -> {
                 if (arg1 == null) {
-                    ctx.sendMessage(Message.raw("Usage: /ch playernick <name> [#color]").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Usage: /ch playernick <name> [#color] [#gradientEnd]").color("#FF5555"));
                     ctx.sendMessage(Message.raw("Use /ch playernick reset to clear").color("#AAAAAA"));
                     return;
                 }
-                setPlayerNickname(ctx, playerId, arg1, arg2);
+                setPlayerNickname(ctx, playerId, arg1, arg2, arg3);
                 return;
             }
         }
@@ -370,7 +371,7 @@ public class ChannelCommand extends CommandBase {
             Message.raw("  Show ignored").color("#AAAAAA")
         ));
         ctx.sendMessage(Message.join(
-            Message.raw("  /ch playernick <name> [#color]").color("#FFFFFF"),
+            Message.raw("  /ch playernick <name> [#color] [#gradient]").color("#FFFFFF"),
             Message.raw("  Set nickname").color("#AAAAAA")
         ));
         ctx.sendMessage(Message.raw("").color("#000000"));
@@ -877,7 +878,7 @@ public class ChannelCommand extends CommandBase {
 
     private static final int MAX_NICKNAME_LENGTH = 20;
 
-    private void setPlayerNickname(CommandContext ctx, UUID playerId, String nickname, String color) {
+    private void setPlayerNickname(CommandContext ctx, UUID playerId, String nickname, String color, String gradientEnd) {
         // Handle reset (no permission needed to clear)
         if (nickname.equalsIgnoreCase("reset") || nickname.equalsIgnoreCase("clear") || nickname.equalsIgnoreCase("off")) {
             playerDataManager.clearNickname(playerId);
@@ -921,28 +922,74 @@ public class ChannelCommand extends CommandBase {
                 return;
             }
 
-            // Validate and set color
-            try {
-                String hex = color.startsWith("#") ? color : "#" + color;
-                // Validate hex format
-                if (!hex.matches("#[0-9A-Fa-f]{6}")) {
-                    ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+            // Validate start color
+            String startHex = color.startsWith("#") ? color : "#" + color;
+            if (!startHex.matches("#[0-9A-Fa-f]{6}")) {
+                ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+                return;
+            }
+            playerDataManager.setNickColor(playerId, startHex);
+
+            // Handle gradient if second color provided
+            if (gradientEnd != null && !gradientEnd.isEmpty()) {
+                String endHex = gradientEnd.startsWith("#") ? gradientEnd : "#" + gradientEnd;
+                if (!endHex.matches("#[0-9A-Fa-f]{6}")) {
+                    ctx.sendMessage(Message.raw("Invalid gradient end color. Use #RRGGBB (e.g., #5555FF)").color("#FF5555"));
                     return;
                 }
-                playerDataManager.setNickColor(playerId, hex);
+                playerDataManager.setNickGradientEnd(playerId, endHex);
+                // Show gradient preview
                 ctx.sendMessage(Message.join(
                     Message.raw("Nickname set to: ").color("#AAAAAA"),
-                    Message.raw(nickname).color(hex)
+                    createGradientPreview(nickname, startHex, endHex)
                 ));
-            } catch (Exception e) {
-                ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+            } else {
+                // Clear any existing gradient
+                playerDataManager.setNickGradientEnd(playerId, null);
+                ctx.sendMessage(Message.join(
+                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(nickname).color(startHex)
+                ));
             }
         } else {
+            // Clear colors
+            playerDataManager.setNickColor(playerId, null);
+            playerDataManager.setNickGradientEnd(playerId, null);
             ctx.sendMessage(Message.join(
                 Message.raw("Nickname set to: ").color("#AAAAAA"),
                 Message.raw(nickname).color("#FFFFFF")
             ));
         }
+    }
+
+    private Message createGradientPreview(String text, String startColor, String endColor) {
+        if (text == null || text.isEmpty()) {
+            return Message.raw("");
+        }
+        if (text.length() == 1) {
+            return Message.raw(text).color(startColor);
+        }
+
+        int startR = Integer.parseInt(startColor.substring(1, 3), 16);
+        int startG = Integer.parseInt(startColor.substring(3, 5), 16);
+        int startB = Integer.parseInt(startColor.substring(5, 7), 16);
+        int endR = Integer.parseInt(endColor.substring(1, 3), 16);
+        int endG = Integer.parseInt(endColor.substring(3, 5), 16);
+        int endB = Integer.parseInt(endColor.substring(5, 7), 16);
+
+        java.util.List<Message> parts = new java.util.ArrayList<>();
+        int len = text.length();
+
+        for (int i = 0; i < len; i++) {
+            float ratio = (float) i / (len - 1);
+            int r = Math.round(startR + (endR - startR) * ratio);
+            int g = Math.round(startG + (endG - startG) * ratio);
+            int b = Math.round(startB + (endB - startB) * ratio);
+            String hexColor = String.format("#%02X%02X%02X", r, g, b);
+            parts.add(Message.raw(String.valueOf(text.charAt(i))).color(hexColor));
+        }
+
+        return Message.join(parts.toArray(new Message[0]));
     }
 
 }
