@@ -5,6 +5,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerConnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.event.EventPriority;
 import com.werchat.channels.ChannelManager;
 import com.werchat.commands.ChannelCommand;
 import com.werchat.commands.IgnoreCommand;
@@ -53,6 +54,7 @@ public class WerchatPlugin extends JavaPlugin {
 
         // Load data
         channelManager.loadChannels();
+        playerDataManager.loadNicknames();
 
         return java.util.concurrent.CompletableFuture.completedFuture(null);
     }
@@ -78,7 +80,8 @@ public class WerchatPlugin extends JavaPlugin {
     }
 
     private void registerListeners() {
-        getEventRegistry().registerGlobal(PlayerChatEvent.class, chatListener::onPlayerChat);
+        // Register chat at LATE priority so permission plugins (HyperPerms, LuckPerms) can format first
+        getEventRegistry().registerGlobal(EventPriority.LATE, PlayerChatEvent.class, chatListener::onPlayerChat);
         getEventRegistry().registerGlobal(PlayerConnectEvent.class, playerListener::onPlayerConnect);
         getEventRegistry().registerGlobal(PlayerDisconnectEvent.class, playerListener::onPlayerDisconnect);
     }
@@ -95,6 +98,9 @@ public class WerchatPlugin extends JavaPlugin {
         // Save data
         if (channelManager != null) {
             channelManager.saveChannels();
+        }
+        if (playerDataManager != null) {
+            playerDataManager.saveNicknames();
         }
         if (config != null) {
             config.save();

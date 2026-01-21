@@ -2,6 +2,7 @@ package com.werchat.listeners;
 
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent.Formatter;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.werchat.WerchatPlugin;
@@ -29,12 +30,22 @@ public class ChatListener {
     // Pattern for @mentions
     private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
 
-    // HyperPerms integration - cached reflection lookups
+    // HyperPerms soft dependency - uses reflection to avoid hard dependency
     private static boolean hyperPermsChecked = false;
     private static boolean hyperPermsAvailable = false;
-    private static Method getPrefixMethod = null;
-    private static Method getSuffixMethod = null;
-    private static Method preloadMethod = null;
+    private static Method hyperPermsPrefixMethod = null;
+    private static Method hyperPermsSuffixMethod = null;
+
+    // LuckPerms soft dependency
+    private static boolean luckPermsChecked = false;
+    private static boolean luckPermsAvailable = false;
+    private static Method luckPermsProviderGet = null;
+    private static Method luckPermsGetUserManager = null;
+    private static Method userManagerGetUser = null;
+    private static Method userGetCachedData = null;
+    private static Method cachedDataGetMetaData = null;
+    private static Method metaDataGetPrefix = null;
+    private static Method metaDataGetSuffix = null;
 
     public ChatListener(WerchatPlugin plugin) {
         this.plugin = plugin;
@@ -52,135 +63,134 @@ public class ChatListener {
     }
 
     /**
-     * Initialize HyperPerms reflection (called once, cached)
+     * Initialize HyperPerms integration via reflection (soft dependency)
      */
     private void initHyperPerms() {
         if (hyperPermsChecked) return;
         hyperPermsChecked = true;
 
         try {
-            Class<?> chatApi = Class.forName("com.hyperperms.api.ChatAPI");
-            getPrefixMethod = chatApi.getMethod("getPrefix", UUID.class);
-            getSuffixMethod = chatApi.getMethod("getSuffix", UUID.class);
-            preloadMethod = chatApi.getMethod("preload", UUID.class);
+            Class<?> chatApiClass = Class.forName("com.hyperperms.api.ChatAPI");
+            hyperPermsPrefixMethod = chatApiClass.getMethod("getPrefix", UUID.class);
+            hyperPermsSuffixMethod = chatApiClass.getMethod("getSuffix", UUID.class);
             hyperPermsAvailable = true;
-            plugin.getLogger().at(Level.INFO).log("[Werchat] HyperPerms ChatAPI found - prefix/suffix integration enabled");
+            plugin.getLogger().at(Level.INFO).log("HyperPerms integration enabled for prefix/suffix display");
         } catch (Exception e) {
-            // HyperPerms not installed
             hyperPermsAvailable = false;
-            plugin.getLogger().at(Level.INFO).log("[Werchat] HyperPerms not found - running standalone");
         }
     }
 
     /**
-     * Preload HyperPerms data for a player (call on player join to warm cache)
+     * Initialize LuckPerms integration via reflection (soft dependency)
      */
-    public void preloadHyperPerms(UUID playerId) {
-        initHyperPerms();
-        if (!hyperPermsAvailable || preloadMethod == null) return;
+    private void initLuckPerms() {
+        if (luckPermsChecked) return;
+        luckPermsChecked = true;
 
         try {
-            preloadMethod.invoke(null, playerId);
-        } catch (Exception ignored) {
-            // Silently fail - not critical
-        }
-    }
+            Class<?> providerClass = Class.forName("net.luckperms.api.LuckPermsProvider");
+            luckPermsProviderGet = providerClass.getMethod("get");
 
-    /**
-     * Get HyperPerms prefix for a player (returns empty string if not available)
-     * Strips legacy color codes (§x) since Hytale uses hex colors
-     */
-    private String getHyperPermsPrefix(UUID playerId) {
-        initHyperPerms();
-        if (!hyperPermsAvailable || getPrefixMethod == null) {
-            return "";
-        }
+            Class<?> luckPermsClass = Class.forName("net.luckperms.api.LuckPerms");
+            luckPermsGetUserManager = luckPermsClass.getMethod("getUserManager");
 
-        try {
-            String prefix = (String) getPrefixMethod.invoke(null, playerId);
-            if (prefix == null || prefix.isEmpty()) {
-                plugin.getLogger().at(Level.INFO).log("[Werchat] HyperPerms returned empty prefix for %s", playerId);
-                return "";
-            }
-            // Strip legacy Minecraft color codes (§x format)
-            String stripped = prefix.replaceAll("§[0-9a-fk-orA-FK-OR]", "");
-            plugin.getLogger().at(Level.INFO).log("[Werchat] HyperPerms prefix: '%s' -> '%s'", prefix, stripped);
-            return stripped;
+            Class<?> userManagerClass = Class.forName("net.luckperms.api.model.user.UserManager");
+            userManagerGetUser = userManagerClass.getMethod("getUser", UUID.class);
+
+            Class<?> userClass = Class.forName("net.luckperms.api.model.user.User");
+            userGetCachedData = userClass.getMethod("getCachedData");
+
+            Class<?> cachedDataClass = Class.forName("net.luckperms.api.cacheddata.CachedDataManager");
+            cachedDataGetMetaData = cachedDataClass.getMethod("getMetaData");
+
+            Class<?> metaDataClass = Class.forName("net.luckperms.api.cacheddata.CachedMetaData");
+            metaDataGetPrefix = metaDataClass.getMethod("getPrefix");
+            metaDataGetSuffix = metaDataClass.getMethod("getSuffix");
+
+            luckPermsAvailable = true;
+            plugin.getLogger().at(Level.INFO).log("LuckPerms integration enabled for prefix/suffix display");
         } catch (Exception e) {
-            plugin.getLogger().at(Level.WARNING).log("[Werchat] HyperPerms getPrefix failed: %s", e.getMessage());
-            return "";
+            luckPermsAvailable = false;
         }
     }
 
     /**
-     * Get HyperPerms suffix for a player (returns empty string if not available)
-     * Strips legacy color codes (§x) since Hytale uses hex colors
+     * Get player prefix from permission plugins (HyperPerms or LuckPerms)
      */
-    private String getHyperPermsSuffix(UUID playerId) {
+    private String getPrefix(UUID playerId) {
+        // Try HyperPerms first
         initHyperPerms();
-        if (!hyperPermsAvailable || getSuffixMethod == null) return "";
-
-        try {
-            String suffix = (String) getSuffixMethod.invoke(null, playerId);
-            if (suffix == null || suffix.isEmpty()) return "";
-            // Strip legacy Minecraft color codes (§x format)
-            String stripped = suffix.replaceAll("§[0-9a-fk-orA-FK-OR]", "");
-            return stripped;
-        } catch (Exception ignored) {
-            return "";
+        if (hyperPermsAvailable && hyperPermsPrefixMethod != null) {
+            try {
+                String prefix = (String) hyperPermsPrefixMethod.invoke(null, playerId);
+                if (prefix != null && !prefix.isEmpty()) {
+                    return prefix;
+                }
+            } catch (Exception ignored) {}
         }
+
+        // Try LuckPerms
+        initLuckPerms();
+        if (luckPermsAvailable) {
+            try {
+                Object luckPerms = luckPermsProviderGet.invoke(null);
+                Object userManager = luckPermsGetUserManager.invoke(luckPerms);
+                Object user = userManagerGetUser.invoke(userManager, playerId);
+                if (user != null) {
+                    Object cachedData = userGetCachedData.invoke(user);
+                    Object metaData = cachedDataGetMetaData.invoke(cachedData);
+                    String prefix = (String) metaDataGetPrefix.invoke(metaData);
+                    if (prefix != null && !prefix.isEmpty()) {
+                        return prefix;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return "";
     }
 
     /**
-     * Extract hex color from HyperPerms prefix (converts §x codes to hex)
-     * Returns null if no color code found
+     * Get player suffix from permission plugins (HyperPerms or LuckPerms)
      */
-    private String extractPrefixColor(UUID playerId) {
+    private String getSuffix(UUID playerId) {
+        // Try HyperPerms first
         initHyperPerms();
-        if (!hyperPermsAvailable || getPrefixMethod == null) return null;
-
-        try {
-            String prefix = (String) getPrefixMethod.invoke(null, playerId);
-            if (prefix == null || prefix.isEmpty()) return null;
-
-            // Find first color code and convert to hex
-            if (prefix.length() >= 2 && prefix.charAt(0) == '§') {
-                char code = Character.toLowerCase(prefix.charAt(1));
-                return mcColorToHex(code);
-            }
-            return null;
-        } catch (Exception ignored) {
-            return null;
+        if (hyperPermsAvailable && hyperPermsSuffixMethod != null) {
+            try {
+                String suffix = (String) hyperPermsSuffixMethod.invoke(null, playerId);
+                if (suffix != null && !suffix.isEmpty()) {
+                    return suffix;
+                }
+            } catch (Exception ignored) {}
         }
-    }
 
-    /**
-     * Convert Minecraft color code to hex
-     */
-    private String mcColorToHex(char code) {
-        return switch (code) {
-            case '0' -> "#000000"; // Black
-            case '1' -> "#0000AA"; // Dark Blue
-            case '2' -> "#00AA00"; // Dark Green
-            case '3' -> "#00AAAA"; // Dark Aqua
-            case '4' -> "#AA0000"; // Dark Red
-            case '5' -> "#AA00AA"; // Dark Purple
-            case '6' -> "#FFAA00"; // Gold
-            case '7' -> "#AAAAAA"; // Gray
-            case '8' -> "#555555"; // Dark Gray
-            case '9' -> "#5555FF"; // Blue
-            case 'a' -> "#55FF55"; // Green
-            case 'b' -> "#55FFFF"; // Aqua
-            case 'c' -> "#FF5555"; // Red
-            case 'd' -> "#FF55FF"; // Light Purple
-            case 'e' -> "#FFFF55"; // Yellow
-            case 'f' -> "#FFFFFF"; // White
-            default -> "#AAAAAA";  // Default gray
-        };
+        // Try LuckPerms
+        initLuckPerms();
+        if (luckPermsAvailable) {
+            try {
+                Object luckPerms = luckPermsProviderGet.invoke(null);
+                Object userManager = luckPermsGetUserManager.invoke(luckPerms);
+                Object user = userManagerGetUser.invoke(userManager, playerId);
+                if (user != null) {
+                    Object cachedData = userGetCachedData.invoke(user);
+                    Object metaData = cachedDataGetMetaData.invoke(cachedData);
+                    String suffix = (String) metaDataGetSuffix.invoke(metaData);
+                    if (suffix != null && !suffix.isEmpty()) {
+                        return suffix;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return "";
     }
 
     public void onPlayerChat(PlayerChatEvent event) {
-        // Cancel default chat immediately - Werchat handles all chat routing
+        // Capture the formatter from the event (kept for potential future use)
+        Formatter externalFormatter = event.getFormatter();
+
+        // Cancel default chat - Werchat handles channel routing
         event.setCancelled(true);
 
         PlayerRef sender = event.getSender();
@@ -243,8 +253,8 @@ public class ChatListener {
         // Update cooldown time
         playerDataManager.setLastMessageTime(senderId, System.currentTimeMillis());
 
-        // Broadcast to channel
-        broadcastToChannel(channel, sender, message);
+        // Broadcast to channel, passing the external formatter for prefix support
+        broadcastToChannel(channel, sender, message, externalFormatter);
     }
 
     /**
@@ -296,7 +306,7 @@ public class ChatListener {
         return mentioned;
     }
 
-    public void broadcastToChannel(Channel channel, PlayerRef sender, String message) {
+    public void broadcastToChannel(Channel channel, PlayerRef sender, String message, Formatter externalFormatter) {
         UUID senderId = sender.getUuid();
         String senderName = sender.getUsername();
 
@@ -345,7 +355,7 @@ public class ChatListener {
                 }
 
                 // Format message with mention highlighting for this recipient
-                Message formatted = formatMessageForRecipient(channel, senderId, senderName, message, memberId, mentionedPlayers);
+                Message formatted = formatMessageForRecipient(channel, sender, message, memberId, mentionedPlayers, externalFormatter);
                 member.sendMessage(formatted);
             }
         }
@@ -355,40 +365,188 @@ public class ChatListener {
     }
 
     /**
-     * Format message with mention highlighting for a specific recipient
+     * Format message with mention highlighting for a specific recipient.
+     * Integrates with HyperPerms for prefix/suffix display.
      */
-    private Message formatMessageForRecipient(Channel channel, UUID senderId, String senderName, String message,
-                                               UUID recipientId, Set<UUID> mentionedPlayers) {
-        // Check if this recipient is mentioned
+    private Message formatMessageForRecipient(Channel channel, PlayerRef sender, String message,
+                                               UUID recipientId, Set<UUID> mentionedPlayers,
+                                               Formatter externalFormatter) {
+        UUID senderId = sender.getUuid();
         boolean isMentioned = mentionedPlayers.contains(recipientId);
 
-        // Get HyperPerms prefix/suffix (empty string if not installed)
-        String prefix = getHyperPermsPrefix(senderId);
-        String suffix = getHyperPermsSuffix(senderId);
-        String prefixColor = extractPrefixColor(senderId);
-        if (prefixColor == null) prefixColor = "#AAAAAA"; // Default gray if no color
+        // Get display name (nickname if set, otherwise username)
+        String displayName = playerDataManager.getDisplayName(senderId);
 
-        if (isMentioned && config.isMentionsEnabled()) {
-            // Highlight the entire message for mentioned players
-            return Message.join(
-                Message.raw("[" + channel.getNick() + "] ").color(channel.getColorHex()),
-                Message.raw(prefix).color(prefixColor),
-                Message.raw(senderName).color("#FFFFFF"),
-                Message.raw(suffix).color("#AAAAAA"),
-                Message.raw(": ").color("#AAAAAA"),
-                Message.raw(message).color(config.getMentionColor()).bold(true)
-            );
-        } else {
-            // Normal formatting
-            return Message.join(
-                Message.raw("[" + channel.getNick() + "] ").color(channel.getColorHex()),
-                Message.raw(prefix).color(prefixColor),
-                Message.raw(senderName).color("#FFFFFF"),
-                Message.raw(suffix).color("#AAAAAA"),
-                Message.raw(": ").color("#AAAAAA"),
-                Message.raw(message).color(channel.getColorHex())
-            );
+        // Get nick color if set, otherwise default white
+        String nickColor = playerDataManager.getDisplayColor(senderId);
+        if (nickColor == null) {
+            nickColor = "#FFFFFF";
         }
+
+        // Get prefix/suffix from permission plugins (HyperPerms or LuckPerms)
+        String prefix = getPrefix(senderId);
+        String suffix = getSuffix(senderId);
+
+        // Build the message parts
+        List<Message> parts = new ArrayList<>();
+
+        // Channel tag
+        parts.add(Message.raw("[" + channel.getNick() + "] ").color(channel.getColorHex()));
+
+        // Prefix from HyperPerms (if any) - already contains color codes
+        if (!prefix.isEmpty()) {
+            parts.add(parseColoredString(prefix));
+        }
+
+        // Player name
+        parts.add(Message.raw(displayName).color(nickColor));
+
+        // Suffix from HyperPerms (if any)
+        if (!suffix.isEmpty()) {
+            parts.add(parseColoredString(suffix));
+        }
+
+        // Colon separator
+        parts.add(Message.raw(": ").color("#AAAAAA"));
+
+        // Message text
+        if (isMentioned && config.isMentionsEnabled()) {
+            parts.add(Message.raw(message).color(config.getMentionColor()).bold(true));
+        } else {
+            parts.add(Message.raw(message).color(channel.getColorHex()));
+        }
+
+        return Message.join(parts.toArray(new Message[0]));
+    }
+
+    /**
+     * Parse a string containing HyperPerms color codes (&c, &6, &#RRGGBB, etc.)
+     * and convert to Hytale Message with proper coloring.
+     */
+    private Message parseColoredString(String text) {
+        if (text == null || text.isEmpty()) {
+            return Message.raw("");
+        }
+
+        List<Message> parts = new ArrayList<>();
+        StringBuilder currentText = new StringBuilder();
+        String currentColor = "#FFFFFF";
+        boolean bold = false;
+        boolean italic = false;
+        boolean underline = false;
+        boolean strikethrough = false;
+
+        int i = 0;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+
+            // Handle both & and § (section sign) color code prefixes
+            if ((c == '&' || c == '\u00A7') && i + 1 < text.length()) {
+                // Flush current text with current formatting
+                if (currentText.length() > 0) {
+                    Message part = Message.raw(currentText.toString()).color(currentColor);
+                    if (bold) part = part.bold(true);
+                    if (italic) part = part.italic(true);
+                    parts.add(part);
+                    currentText = new StringBuilder();
+                }
+
+                char next = text.charAt(i + 1);
+
+                // Check for hex color: &#RRGGBB or §#RRGGBB
+                if (next == '#' && i + 8 <= text.length()) {
+                    String hex = text.substring(i + 1, i + 8);
+                    if (hex.matches("#[0-9A-Fa-f]{6}")) {
+                        currentColor = hex.toUpperCase();
+                        i += 8;
+                        continue;
+                    }
+                }
+
+                // Check for Minecraft extended hex: §x§R§R§G§G§B§B (14 chars total)
+                if ((next == 'x' || next == 'X') && i + 14 <= text.length()) {
+                    String extended = text.substring(i, i + 14);
+                    if (extended.matches("[\u00A7&][xX]([\u00A7&][0-9A-Fa-f]){6}")) {
+                        // Extract hex digits
+                        StringBuilder hexBuilder = new StringBuilder("#");
+                        for (int j = 2; j < 14; j += 2) {
+                            hexBuilder.append(extended.charAt(j + 1));
+                        }
+                        currentColor = hexBuilder.toString().toUpperCase();
+                        i += 14;
+                        continue;
+                    }
+                }
+
+                // Check for legacy color/format codes
+                String newColor = legacyColorToHex(next);
+                if (newColor != null) {
+                    currentColor = newColor;
+                    i += 2;
+                    continue;
+                }
+
+                // Check for formatting codes
+                switch (Character.toLowerCase(next)) {
+                    case 'l': bold = true; i += 2; continue;
+                    case 'o': italic = true; i += 2; continue;
+                    case 'n': underline = true; i += 2; continue;
+                    case 'm': strikethrough = true; i += 2; continue;
+                    case 'r': // Reset
+                        currentColor = "#FFFFFF";
+                        bold = false;
+                        italic = false;
+                        underline = false;
+                        strikethrough = false;
+                        i += 2;
+                        continue;
+                }
+            }
+
+            currentText.append(c);
+            i++;
+        }
+
+        // Flush remaining text
+        if (currentText.length() > 0) {
+            Message part = Message.raw(currentText.toString()).color(currentColor);
+            if (bold) part = part.bold(true);
+            if (italic) part = part.italic(true);
+            parts.add(part);
+        }
+
+        if (parts.isEmpty()) {
+            return Message.raw("");
+        } else if (parts.size() == 1) {
+            return parts.get(0);
+        } else {
+            return Message.join(parts.toArray(new Message[0]));
+        }
+    }
+
+    /**
+     * Convert Minecraft legacy color code to hex color.
+     */
+    private String legacyColorToHex(char code) {
+        return switch (Character.toLowerCase(code)) {
+            case '0' -> "#000000"; // Black
+            case '1' -> "#0000AA"; // Dark Blue
+            case '2' -> "#00AA00"; // Dark Green
+            case '3' -> "#00AAAA"; // Dark Aqua
+            case '4' -> "#AA0000"; // Dark Red
+            case '5' -> "#AA00AA"; // Dark Purple
+            case '6' -> "#FFAA00"; // Gold
+            case '7' -> "#AAAAAA"; // Gray
+            case '8' -> "#555555"; // Dark Gray
+            case '9' -> "#5555FF"; // Blue
+            case 'a' -> "#55FF55"; // Green
+            case 'b' -> "#55FFFF"; // Aqua
+            case 'c' -> "#FF5555"; // Red
+            case 'd' -> "#FF55FF"; // Light Purple
+            case 'e' -> "#FFFF55"; // Yellow
+            case 'f' -> "#FFFFFF"; // White
+            default -> null;
+        };
     }
 
     public void sendPrivateMessage(PlayerRef sender, PlayerRef recipient, String message) {
@@ -419,13 +577,20 @@ public class ChatListener {
             }
         }
 
-        String senderName = sender.getUsername();
-        String recipientName = recipient.getUsername();
+        // Use display names (nicknames if set)
+        String senderDisplayName = playerDataManager.getDisplayName(senderId);
+        String recipientDisplayName = playerDataManager.getDisplayName(recipientId);
+
+        // Get nick colors if set
+        String senderColor = playerDataManager.getDisplayColor(senderId);
+        String recipientColor = playerDataManager.getDisplayColor(recipientId);
+        if (senderColor == null) senderColor = "#55FF55";
+        if (recipientColor == null) recipientColor = "#55FF55";
 
         // Message to recipient: [From SenderName] message
         Message toRecipient = Message.join(
             Message.raw("[From ").color("#AAAAAA"),
-            Message.raw(senderName).color("#55FF55"),
+            Message.raw(senderDisplayName).color(senderColor),
             Message.raw("] ").color("#AAAAAA"),
             Message.raw(message).color("#FFFFFF")
         );
@@ -433,7 +598,7 @@ public class ChatListener {
         // Message to sender: [To RecipientName] message
         Message toSender = Message.join(
             Message.raw("[To ").color("#AAAAAA"),
-            Message.raw(recipientName).color("#55FF55"),
+            Message.raw(recipientDisplayName).color(recipientColor),
             Message.raw("] ").color("#AAAAAA"),
             Message.raw(message).color("#FFFFFF")
         );
@@ -444,7 +609,7 @@ public class ChatListener {
         // Update last message from for reply functionality
         playerDataManager.setLastMessageFrom(recipientId, senderId);
 
-        // Log PM
-        plugin.getLogger().at(Level.INFO).log("[PM] %s -> %s: %s", senderName, recipientName, message);
+        // Log PM (use real usernames for logs)
+        plugin.getLogger().at(Level.INFO).log("[PM] %s -> %s: %s", sender.getUsername(), recipient.getUsername(), message);
     }
 }

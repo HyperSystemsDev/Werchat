@@ -4,6 +4,7 @@ import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
+import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.werchat.WerchatPlugin;
 import com.werchat.channels.Channel;
@@ -24,11 +25,14 @@ public class ChannelCommand extends CommandBase {
 
     /**
      * Check if sender has a werchat permission, including wildcard support
+     * Uses PermissionsModule for consistent permission checking
      */
     private boolean hasWerchatPermission(CommandContext ctx, String permission) {
-        return ctx.sender().hasPermission(permission)
-            || ctx.sender().hasPermission("werchat.*")
-            || ctx.sender().hasPermission("*");
+        UUID playerId = ctx.sender().getUuid();
+        PermissionsModule perms = PermissionsModule.get();
+        return perms.hasPermission(playerId, permission)
+            || perms.hasPermission(playerId, "werchat.*")
+            || perms.hasPermission(playerId, "*");
     }
 
     public ChannelCommand(WerchatPlugin plugin) {
@@ -222,6 +226,15 @@ public class ChannelCommand extends CommandBase {
                 unmutePlayer(ctx, playerId, arg1, arg2);
                 return;
             }
+            case "playernick", "pnick", "nickname" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch playernick <name> [#color]").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Use /ch playernick reset to clear").color("#AAAAAA"));
+                    return;
+                }
+                setPlayerNickname(ctx, playerId, arg1, arg2);
+                return;
+            }
         }
 
         // Not a known command - try to switch to a channel by name/nick
@@ -355,6 +368,10 @@ public class ChannelCommand extends CommandBase {
         ctx.sendMessage(Message.join(
             Message.raw("  /ignorelist").color("#FFFFFF"),
             Message.raw("  Show ignored").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch playernick <name> [#color]").color("#FFFFFF"),
+            Message.raw("  Set nickname").color("#AAAAAA")
         ));
         ctx.sendMessage(Message.raw("").color("#000000"));
     }
@@ -856,6 +873,76 @@ public class ChannelCommand extends CommandBase {
             Message.raw(" has been unmuted in ").color("#55FF55"),
             Message.raw(channel.getName()).color(channel.getColorHex())
         ));
+    }
+
+    private static final int MAX_NICKNAME_LENGTH = 20;
+
+    private void setPlayerNickname(CommandContext ctx, UUID playerId, String nickname, String color) {
+        // Handle reset (no permission needed to clear)
+        if (nickname.equalsIgnoreCase("reset") || nickname.equalsIgnoreCase("clear") || nickname.equalsIgnoreCase("off")) {
+            playerDataManager.clearNickname(playerId);
+            ctx.sendMessage(Message.raw("Nickname cleared").color("#55FF55"));
+            return;
+        }
+
+        // Check permission to set nickname
+        if (!hasWerchatPermission(ctx, "werchat.playernick")) {
+            ctx.sendMessage(Message.raw("You don't have permission to set nicknames").color("#FF5555"));
+            return;
+        }
+
+        // Validate length
+        if (nickname.length() > MAX_NICKNAME_LENGTH) {
+            ctx.sendMessage(Message.raw("Nickname too long (max " + MAX_NICKNAME_LENGTH + " characters)").color("#FF5555"));
+            return;
+        }
+
+        // Check for impersonation - can't use another player's username
+        for (PlayerRef online : playerDataManager.getOnlinePlayers()) {
+            if (online.getUuid().equals(playerId)) continue; // Skip self
+            if (online.getUsername().equalsIgnoreCase(nickname)) {
+                ctx.sendMessage(Message.raw("You cannot use another player's username as your nickname").color("#FF5555"));
+                return;
+            }
+        }
+
+        // Set nickname
+        playerDataManager.setNickname(playerId, nickname);
+
+        // Handle color if provided
+        if (color != null && !color.isEmpty()) {
+            // Check permission for colors
+            if (!hasWerchatPermission(ctx, "werchat.nickcolor")) {
+                ctx.sendMessage(Message.join(
+                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(nickname).color("#FFFFFF")
+                ));
+                ctx.sendMessage(Message.raw("You need werchat.nickcolor permission for colors").color("#FFAA00"));
+                return;
+            }
+
+            // Validate and set color
+            try {
+                String hex = color.startsWith("#") ? color : "#" + color;
+                // Validate hex format
+                if (!hex.matches("#[0-9A-Fa-f]{6}")) {
+                    ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+                    return;
+                }
+                playerDataManager.setNickColor(playerId, hex);
+                ctx.sendMessage(Message.join(
+                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(nickname).color(hex)
+                ));
+            } catch (Exception e) {
+                ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+            }
+        } else {
+            ctx.sendMessage(Message.join(
+                Message.raw("Nickname set to: ").color("#AAAAAA"),
+                Message.raw(nickname).color("#FFFFFF")
+            ));
+        }
     }
 
 }

@@ -34,9 +34,6 @@ public class PlayerListener {
         // Track online player
         playerDataManager.trackPlayer(playerId, player);
 
-        // Preload HyperPerms data (warms cache for chat prefixes)
-        plugin.getChatListener().preloadHyperPerms(playerId);
-
         // Auto-join default channels (silently - no broadcast spam)
         for (Channel channel : channelManager.getAllChannels()) {
             if (channel.isAutoJoin() && !channel.isBanned(playerId)) {

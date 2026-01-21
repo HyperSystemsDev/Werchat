@@ -12,13 +12,13 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 - **Local/Global Chat** - Distance-based local channels or server-wide global channels
 - **Persistent Storage** - All channel settings saved to disk
 
-### New in v1.1.0
+### New in v1.1.3
 
+- **Player Nicknames** - Custom display names with optional colors (`/ch playernick`)
 - **Word Filter** - Block or censor profanity (admins bypass)
 - **@Mentions** - Tag players with @username, highlighted in yellow
 - **Ignore List** - `/ignore` and `/ignorelist` to block annoying players
 - **Chat Cooldown** - Anti-spam delay (admins bypass)
-- **Admin Bypass** - Ops with `*` or `werchat.*` permission bypass filter & cooldown
 
 ## Commands
 
@@ -37,6 +37,8 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 | `/r <message>` | Reply to last private message |
 | `/ignore <player>` | Toggle ignoring a player |
 | `/ignorelist` | Show your ignored players |
+| `/ch playernick <name> [#color]` | Set your display nickname |
+| `/ch playernick reset` | Clear your nickname |
 
 ### Channel Management (Moderators/Permission Holders)
 
@@ -74,6 +76,8 @@ All commands are available to players in Adventure mode by default. The followin
 | `werchat.distance` | Set chat range on any channel |
 | `werchat.ban` | Ban/unban players from any channel |
 | `werchat.mute` | Mute/unmute players in any channel |
+| `werchat.playernick` | Set a player nickname |
+| `werchat.nickcolor` | Use colors in player nicknames |
 
 **Note:** Management commands can also be used by **channel moderators** without needing explicit permissions. The creator of a channel automatically becomes its owner and moderator.
 
@@ -159,7 +163,7 @@ Werchat creates these channels on first run:
 
 ## Installation
 
-1. Download `Werchat-1.1.2.jar`
+1. Download `Werchat-1.1.3.jar`
 2. Place in your Hytale server's `Mods` folder
 3. Restart the server
 4. (Optional) Edit `config.json` to enable word filter, cooldown, or announcements
@@ -167,12 +171,20 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
-### v1.1.2
+### v1.1.3
 **New Features:**
-- **HyperPerms Integration** - Chat messages now display rank prefixes/suffixes from HyperPerms
-  - Soft dependency (works with or without HyperPerms installed)
-  - Automatically converts Minecraft color codes to Hytale hex colors
-  - Preloads player rank data on join for consistent display
+- **Player Nicknames** - Set custom display names with `/ch playernick <name> [#color]`
+  - Requires `werchat.playernick` permission to set nicknames
+  - Optional custom colors (requires `werchat.nickcolor` permission)
+  - Nicknames display in channel chat and private messages
+  - Anti-impersonation: Cannot use another player's username
+  - Max 20 characters
+  - Persistent across sessions (saved to `nicknames.json`)
+  - Aliases: `/ch pnick`, `/ch nickname`
+
+**Bug Fixes:**
+- Fixed permission checks not working correctly (commands were accessible to all players)
+- Removed prefix/suffix integration that was interfering with other chat plugins
 
 **Compatibility:**
 - Verified compatible with party plugins (sn0wkzy:party, PartyPlugin, SimpleParty)
@@ -218,7 +230,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.2
+**Version:** 1.1.3
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT
