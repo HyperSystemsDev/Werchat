@@ -12,11 +12,10 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 - **Local/Global Chat** - Distance-based local channels or server-wide global channels
 - **Persistent Storage** - All channel settings saved to disk
 
-### New in v1.1.4
+### New in v1.1.5
 
-- **LuckPerms Support** - Prefixes/suffixes now work with both HyperPerms and LuckPerms
-- **Improved Color Parsing** - Properly renders `§c`, `&c`, and `&#RRGGBB` color codes in prefixes
-- **Soft Dependencies** - Works standalone or with either permission plugin (no hard dependencies)
+- **HyFactions Integration** - Players in factions now display their faction tag before the channel tag
+- **Multi-Plugin Compatibility** - Works with HyperPerms, LuckPerms, and HyFactions (all soft dependencies)
 
 ## Commands
 
@@ -169,6 +168,17 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
+### v1.1.5
+**New Features:**
+- **HyFactions Integration** - Faction tags now display in chat
+  - Format: `[FactionName] [Channel] [Prefix]PlayerName: message`
+  - Uses faction's configured color
+  - Only shows for players in a faction
+
+**Technical Changes:**
+- HyFactions is a soft dependency (reflection-based, no compile-time dependency)
+- Chat format order: Faction Tag → Channel Tag → Permission Prefix → Name → Suffix → Message
+
 ### v1.1.4
 **New Features:**
 - **LuckPerms Support** - Prefixes and suffixes now work with LuckPerms in addition to HyperPerms
@@ -241,7 +251,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.4
+**Version:** 1.1.5
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT
