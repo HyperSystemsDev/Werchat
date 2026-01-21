@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.werchat"
-version = "1.1.3"
+version = "1.1.4"
 
 java {
     // Note: Compiling with Java 25, targeting Java 21 bytecode for Hytale compatibility

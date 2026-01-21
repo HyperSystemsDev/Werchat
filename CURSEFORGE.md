@@ -12,13 +12,11 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 - **Local/Global Chat** - Distance-based local channels or server-wide global channels
 - **Persistent Storage** - All channel settings saved to disk
 
-### New in v1.1.3
+### New in v1.1.4
 
-- **Player Nicknames** - Custom display names with optional colors (`/ch playernick`)
-- **Word Filter** - Block or censor profanity (admins bypass)
-- **@Mentions** - Tag players with @username, highlighted in yellow
-- **Ignore List** - `/ignore` and `/ignorelist` to block annoying players
-- **Chat Cooldown** - Anti-spam delay (admins bypass)
+- **LuckPerms Support** - Prefixes/suffixes now work with both HyperPerms and LuckPerms
+- **Improved Color Parsing** - Properly renders `§c`, `&c`, and `&#RRGGBB` color codes in prefixes
+- **Soft Dependencies** - Works standalone or with either permission plugin (no hard dependencies)
 
 ## Commands
 
@@ -171,6 +169,19 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
+### v1.1.4
+**New Features:**
+- **LuckPerms Support** - Prefixes and suffixes now work with LuckPerms in addition to HyperPerms
+- **Improved Color Code Parsing** - Properly renders all color formats:
+  - Legacy codes: `§c`, `&c`
+  - Hex colors: `&#RRGGBB`
+  - Extended hex: `§x§R§R§G§G§B§B`
+
+**Technical Changes:**
+- Both permission plugins are soft dependencies (reflection-based, no compile-time dependency)
+- Tries HyperPerms first, falls back to LuckPerms if unavailable
+- Works standalone if neither plugin is installed
+
 ### v1.1.3
 **New Features:**
 - **Player Nicknames** - Set custom display names with `/ch playernick <name> [#color]`
@@ -230,7 +241,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.3
+**Version:** 1.1.4
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT
