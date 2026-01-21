@@ -12,10 +12,11 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 - **Local/Global Chat** - Distance-based local channels or server-wide global channels
 - **Persistent Storage** - All channel settings saved to disk
 
-### New in v1.1.5
+### New in v1.1.6
 
-- **HyFactions Integration** - Players in factions now display their faction tag before the channel tag
-- **Multi-Plugin Compatibility** - Works with HyperPerms, LuckPerms, and HyFactions (all soft dependencies)
+- **Gradient Nicknames** - `/ch playernick <name> #startColor #endColor` for rainbow names
+- **Custom Message Colors** - `/ch msgcolor #color [#gradient]` to override channel colors
+- **Optional Channel Tags** - Set channel nick to empty to hide the `[Channel]` prefix
 
 ## Commands
 
@@ -168,16 +169,28 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
+### v1.1.6
+**New Features:**
+- **Gradient Nicknames** - Set gradient colors for your display name
+  - Usage: `/ch playernick <name> #startColor #endColor`
+  - Each character smoothly transitions between colors
+- **Custom Message Colors** - Override channel colors with personal colors
+  - Usage: `/ch msgcolor #color [#gradientEnd]`
+  - Requires `werchat.msgcolor` permission
+  - Supports solid colors and gradients
+- **Optional Channel Tags** - Hide `[Channel]` prefix by setting nick to empty in channels.json
+
+**Bug Fixes:**
+- Colon separator now white instead of gray
+
 ### v1.1.5
 **New Features:**
-- **HyFactions Integration** - Faction tags now display in chat
+- **HyFactions Integration** (experimental) - Faction tags display in chat
   - Format: `[FactionName] [Channel] [Prefix]PlayerName: message`
   - Uses faction's configured color
-  - Only shows for players in a faction
 
 **Technical Changes:**
 - HyFactions is a soft dependency (reflection-based, no compile-time dependency)
-- Chat format order: Faction Tag → Channel Tag → Permission Prefix → Name → Suffix → Message
 
 ### v1.1.4
 **New Features:**
@@ -251,7 +264,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.5
+**Version:** 1.1.6
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT
