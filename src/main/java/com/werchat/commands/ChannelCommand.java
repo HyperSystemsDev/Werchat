@@ -236,6 +236,15 @@ public class ChannelCommand extends CommandBase {
                 setPlayerNickname(ctx, playerId, arg1, arg2, arg3);
                 return;
             }
+            case "msgcolor", "messagecolor", "chatcolor" -> {
+                if (arg1 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch msgcolor <#color> [#gradientEnd]").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Use /ch msgcolor reset to clear").color("#AAAAAA"));
+                    return;
+                }
+                setMessageColor(ctx, playerId, arg1, arg2);
+                return;
+            }
         }
 
         // Not a known command - try to switch to a channel by name/nick
@@ -373,6 +382,10 @@ public class ChannelCommand extends CommandBase {
         ctx.sendMessage(Message.join(
             Message.raw("  /ch playernick <name> [#color] [#gradient]").color("#FFFFFF"),
             Message.raw("  Set nickname").color("#AAAAAA")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  /ch msgcolor <#color> [#gradient]").color("#FFFFFF"),
+            Message.raw("  Set message color").color("#AAAAAA")
         ));
         ctx.sendMessage(Message.raw("").color("#000000"));
     }
@@ -990,6 +1003,51 @@ public class ChannelCommand extends CommandBase {
         }
 
         return Message.join(parts.toArray(new Message[0]));
+    }
+
+    private void setMessageColor(CommandContext ctx, UUID playerId, String color, String gradientEnd) {
+        // Handle reset
+        if (color.equalsIgnoreCase("reset") || color.equalsIgnoreCase("clear") || color.equalsIgnoreCase("off")) {
+            playerDataManager.clearMsgColor(playerId);
+            ctx.sendMessage(Message.raw("Message color cleared (using channel color)").color("#55FF55"));
+            return;
+        }
+
+        // Check permission
+        if (!hasWerchatPermission(ctx, "werchat.msgcolor")) {
+            ctx.sendMessage(Message.raw("You don't have permission to set message colors").color("#FF5555"));
+            return;
+        }
+
+        // Validate start color
+        String startHex = color.startsWith("#") ? color : "#" + color;
+        if (!startHex.matches("#[0-9A-Fa-f]{6}")) {
+            ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
+            return;
+        }
+        playerDataManager.setMsgColor(playerId, startHex);
+
+        // Handle gradient if second color provided
+        if (gradientEnd != null && !gradientEnd.isEmpty()) {
+            String endHex = gradientEnd.startsWith("#") ? gradientEnd : "#" + gradientEnd;
+            if (!endHex.matches("#[0-9A-Fa-f]{6}")) {
+                ctx.sendMessage(Message.raw("Invalid gradient end color. Use #RRGGBB (e.g., #5555FF)").color("#FF5555"));
+                return;
+            }
+            playerDataManager.setMsgGradientEnd(playerId, endHex);
+            // Show gradient preview
+            ctx.sendMessage(Message.join(
+                Message.raw("Message color set to: ").color("#AAAAAA"),
+                createGradientPreview("Example message", startHex, endHex)
+            ));
+        } else {
+            // Clear any existing gradient
+            playerDataManager.setMsgGradientEnd(playerId, null);
+            ctx.sendMessage(Message.join(
+                Message.raw("Message color set to: ").color("#AAAAAA"),
+                Message.raw("Example message").color(startHex)
+            ));
+        }
     }
 
 }

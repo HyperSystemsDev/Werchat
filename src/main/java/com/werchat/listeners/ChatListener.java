@@ -499,11 +499,22 @@ public class ChatListener {
         // Colon separator
         parts.add(Message.raw(": ").color("#FFFFFF"));
 
-        // Message text
+        // Message text (player's custom color overrides channel color)
         if (isMentioned && config.isMentionsEnabled()) {
             parts.add(Message.raw(message).color(config.getMentionColor()).bold(true));
         } else {
-            parts.add(Message.raw(message).color(channel.getColorHex()));
+            String msgColor = playerDataManager.getMsgColor(senderId);
+            String msgGradientEnd = playerDataManager.getMsgGradientEnd(senderId);
+            if (msgColor != null && msgGradientEnd != null) {
+                // Player has gradient message color
+                parts.add(createGradientMessage(message, msgColor, msgGradientEnd));
+            } else if (msgColor != null) {
+                // Player has solid message color
+                parts.add(Message.raw(message).color(msgColor));
+            } else {
+                // Use channel color
+                parts.add(Message.raw(message).color(channel.getColorHex()));
+            }
         }
 
         return Message.join(parts.toArray(new Message[0]));

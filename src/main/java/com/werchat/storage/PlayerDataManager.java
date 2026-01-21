@@ -102,6 +102,26 @@ public class PlayerDataManager {
     public boolean hasGradient(UUID playerId) { return getPlayerData(playerId).hasGradient(); }
     public boolean hasNickname(UUID playerId) { return getPlayerData(playerId).hasNickname(); }
 
+    // Message color methods
+    public String getMsgColor(UUID playerId) { return getPlayerData(playerId).getMsgColor(); }
+    public void setMsgColor(UUID playerId, String color) {
+        getPlayerData(playerId).setMsgColor(color);
+        saveNicknames();
+    }
+    public String getMsgGradientEnd(UUID playerId) { return getPlayerData(playerId).getMsgGradientEnd(); }
+    public void setMsgGradientEnd(UUID playerId, String color) {
+        getPlayerData(playerId).setMsgGradientEnd(color);
+        saveNicknames();
+    }
+    public boolean hasMsgColor(UUID playerId) { return getPlayerData(playerId).hasMsgColor(); }
+    public boolean hasMsgGradient(UUID playerId) { return getPlayerData(playerId).hasMsgGradient(); }
+    public void clearMsgColor(UUID playerId) {
+        PlayerChatData data = getPlayerData(playerId);
+        data.setMsgColor(null);
+        data.setMsgGradientEnd(null);
+        saveNicknames();
+    }
+
     public String getDisplayName(UUID playerId) {
         PlayerChatData data = getPlayerData(playerId);
         if (data.hasNickname()) {
@@ -145,6 +165,8 @@ public class PlayerDataManager {
                     data.setNickname(nickData.nickname);
                     data.setNickColor(nickData.color);
                     data.setNickGradientEnd(nickData.gradientEnd);
+                    data.setMsgColor(nickData.msgColor);
+                    data.setMsgGradientEnd(nickData.msgGradientEnd);
                 }
                 plugin.getLogger().at(Level.INFO).log("Loaded %d nicknames", loaded.size());
             }
@@ -160,8 +182,10 @@ public class PlayerDataManager {
             Map<String, NicknameData> toSave = new HashMap<>();
             for (Map.Entry<UUID, PlayerChatData> entry : playerData.entrySet()) {
                 PlayerChatData data = entry.getValue();
-                if (data.hasNickname()) {
-                    toSave.put(entry.getKey().toString(), new NicknameData(data.getNickname(), data.getNickColor(), data.getNickGradientEnd()));
+                if (data.hasNickname() || data.hasMsgColor()) {
+                    toSave.put(entry.getKey().toString(), new NicknameData(
+                        data.getNickname(), data.getNickColor(), data.getNickGradientEnd(),
+                        data.getMsgColor(), data.getMsgGradientEnd()));
                 }
             }
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -177,10 +201,14 @@ public class PlayerDataManager {
         String nickname;
         String color;
         String gradientEnd;
-        NicknameData(String nickname, String color, String gradientEnd) {
+        String msgColor;
+        String msgGradientEnd;
+        NicknameData(String nickname, String color, String gradientEnd, String msgColor, String msgGradientEnd) {
             this.nickname = nickname;
             this.color = color;
             this.gradientEnd = gradientEnd;
+            this.msgColor = msgColor;
+            this.msgGradientEnd = msgGradientEnd;
         }
     }
 
@@ -206,6 +234,8 @@ public class PlayerDataManager {
         private String nickname; // Custom display name
         private String nickColor; // Hex color for nickname (e.g., "#FF5555")
         private String nickGradientEnd; // End color for gradient (e.g., "#5555FF")
+        private String msgColor; // Custom message color
+        private String msgGradientEnd; // End color for message gradient
 
         public PlayerChatData(UUID playerId) {
             this.playerId = playerId;
@@ -215,6 +245,8 @@ public class PlayerDataManager {
             this.nickname = null;
             this.nickColor = null;
             this.nickGradientEnd = null;
+            this.msgColor = null;
+            this.msgGradientEnd = null;
         }
 
         public UUID getPlayerId() { return playerId; }
@@ -236,5 +268,11 @@ public class PlayerDataManager {
         public void setNickGradientEnd(String nickGradientEnd) { this.nickGradientEnd = nickGradientEnd; }
         public boolean hasGradient() { return nickColor != null && nickGradientEnd != null; }
         public boolean hasNickname() { return nickname != null && !nickname.isEmpty(); }
+        public String getMsgColor() { return msgColor; }
+        public void setMsgColor(String msgColor) { this.msgColor = msgColor; }
+        public String getMsgGradientEnd() { return msgGradientEnd; }
+        public void setMsgGradientEnd(String msgGradientEnd) { this.msgGradientEnd = msgGradientEnd; }
+        public boolean hasMsgColor() { return msgColor != null && !msgColor.isEmpty(); }
+        public boolean hasMsgGradient() { return msgColor != null && msgGradientEnd != null; }
     }
 }
