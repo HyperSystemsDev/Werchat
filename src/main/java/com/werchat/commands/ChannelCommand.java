@@ -24,8 +24,7 @@ public class ChannelCommand extends CommandBase {
     private final PlayerDataManager playerDataManager;
 
     /**
-     * Check if sender has a werchat permission, including wildcard support
-     * Uses PermissionsModule for consistent permission checking
+     * Check if sender has a werchat permission, including wildcard support.
      */
     private boolean hasWerchatPermission(CommandContext ctx, String permission) {
         UUID playerId = ctx.sender().getUuid();
@@ -33,6 +32,23 @@ public class ChannelCommand extends CommandBase {
         return perms.hasPermission(playerId, permission)
             || perms.hasPermission(playerId, "werchat.*")
             || perms.hasPermission(playerId, "*");
+    }
+
+    /**
+     * Check if sender has ANY admin/management permission.
+     * Used to decide whether to show admin commands in help.
+     */
+    private boolean hasAnyAdminPermission(CommandContext ctx) {
+        UUID playerId = ctx.sender().getUuid();
+        PermissionsModule perms = PermissionsModule.get();
+        if (perms.hasPermission(playerId, "*") || perms.hasPermission(playerId, "werchat.*")) return true;
+        String[] adminPerms = {"werchat.create", "werchat.remove", "werchat.color", "werchat.nick",
+            "werchat.password", "werchat.rename", "werchat.mod", "werchat.distance",
+            "werchat.ban", "werchat.mute"};
+        for (String perm : adminPerms) {
+            if (perms.hasPermission(playerId, perm)) return true;
+        }
+        return false;
     }
 
     public ChannelCommand(WerchatPlugin plugin) {
@@ -89,8 +105,19 @@ public class ChannelCommand extends CommandBase {
         // Check for known subcommands first
         switch (cmd) {
             case "help", "?" -> { showHelp(ctx); return; }
-            case "list", "l" -> { listChannels(ctx, playerId); return; }
+            case "list", "l" -> {
+                if (!hasWerchatPermission(ctx, "werchat.list")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to list channels").color("#FF5555"));
+                    return;
+                }
+                listChannels(ctx, playerId);
+                return;
+            }
             case "join", "j" -> {
+                if (!hasWerchatPermission(ctx, "werchat.join")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to join channels").color("#FF5555"));
+                    return;
+                }
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch join <channel>").color("#FF5555"));
                     return;
@@ -99,6 +126,10 @@ public class ChannelCommand extends CommandBase {
                 return;
             }
             case "leave" -> {
+                if (!hasWerchatPermission(ctx, "werchat.leave")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to leave channels").color("#FF5555"));
+                    return;
+                }
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch leave <channel>").color("#FF5555"));
                     return;
@@ -115,6 +146,10 @@ public class ChannelCommand extends CommandBase {
                 return;
             }
             case "who", "w" -> {
+                if (!hasWerchatPermission(ctx, "werchat.who")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to view channel members").color("#FF5555"));
+                    return;
+                }
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch who <channel>").color("#FF5555"));
                     return;
@@ -147,6 +182,10 @@ public class ChannelCommand extends CommandBase {
                 return;
             }
             case "info" -> {
+                if (!hasWerchatPermission(ctx, "werchat.info")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to view channel info").color("#FF5555"));
+                    return;
+                }
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch info <channel>").color("#FF5555"));
                     return;
@@ -248,6 +287,10 @@ public class ChannelCommand extends CommandBase {
         }
 
         // Not a known command - try to switch to a channel by name/nick
+        if (!hasWerchatPermission(ctx, "werchat.switch")) {
+            ctx.sendMessage(Message.raw("You don't have permission to switch channels").color("#FF5555"));
+            return;
+        }
         switchToChannel(ctx, playerId, cmd);
     }
 
@@ -309,60 +352,6 @@ public class ChannelCommand extends CommandBase {
             Message.raw("  Channel info").color("#AAAAAA")
         ));
         ctx.sendMessage(Message.raw("").color("#000000"));
-        ctx.sendMessage(Message.raw("  Channel Management (mods)").color("#FFAA00"));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch create <name>").color("#FFFFFF"),
-            Message.raw("  Create channel").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch color <ch> <#hex>").color("#FFFFFF"),
-            Message.raw("  Set color").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch nick <ch> <nick>").color("#FFFFFF"),
-            Message.raw("  Set shortcut").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch password <ch> [pw]").color("#FFFFFF"),
-            Message.raw("  Set/clear password").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch rename <ch> <name>").color("#FFFFFF"),
-            Message.raw("  Rename channel").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch remove <ch>").color("#FFFFFF"),
-            Message.raw("  Delete channel").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch mod <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Add moderator").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch unmod <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Remove moderator").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch distance <ch> <blocks>").color("#FFFFFF"),
-            Message.raw("  Set range (0=global)").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch ban <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Ban player").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch unban <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Unban player").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch mute <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Mute player").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.join(
-            Message.raw("  /ch unmute <ch> <player>").color("#FFFFFF"),
-            Message.raw("  Unmute player").color("#AAAAAA")
-        ));
-        ctx.sendMessage(Message.raw("").color("#000000"));
         ctx.sendMessage(Message.join(
             Message.raw("  /msg <player> <text>").color("#FFFFFF"),
             Message.raw("  Private message").color("#AAAAAA")
@@ -387,6 +376,64 @@ public class ChannelCommand extends CommandBase {
             Message.raw("  /ch msgcolor <#color> [#gradient]").color("#FFFFFF"),
             Message.raw("  Set message color").color("#AAAAAA")
         ));
+
+        // Only show admin commands to players who have at least one admin permission
+        if (hasAnyAdminPermission(ctx)) {
+            ctx.sendMessage(Message.raw("").color("#000000"));
+            ctx.sendMessage(Message.raw("  Channel Management").color("#FFAA00"));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch create <name>").color("#FFFFFF"),
+                Message.raw("  Create channel").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch color <ch> <#hex>").color("#FFFFFF"),
+                Message.raw("  Set color").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch nick <ch> <nick>").color("#FFFFFF"),
+                Message.raw("  Set shortcut").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch password <ch> [pw]").color("#FFFFFF"),
+                Message.raw("  Set/clear password").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch rename <ch> <name>").color("#FFFFFF"),
+                Message.raw("  Rename channel").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch remove <ch>").color("#FFFFFF"),
+                Message.raw("  Delete channel").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch mod <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Add moderator").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch unmod <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Remove moderator").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch distance <ch> <blocks>").color("#FFFFFF"),
+                Message.raw("  Set range (0=global)").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch ban <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Ban player").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch unban <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Unban player").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch mute <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Mute player").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch unmute <ch> <player>").color("#FFFFFF"),
+                Message.raw("  Unmute player").color("#AAAAAA")
+            ));
+        }
         ctx.sendMessage(Message.raw("").color("#000000"));
     }
 

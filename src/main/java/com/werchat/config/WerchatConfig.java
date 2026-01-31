@@ -41,9 +41,8 @@ public class WerchatConfig {
     private boolean mentionsEnabled = true;
     private String mentionColor = "#FFFF55"; // Yellow
 
-    // Quick Chat (symbol triggers to route messages to channels)
+    // Quick Chat (symbol triggers to route messages to channels, configured per-channel in channels.json)
     private boolean quickChatEnabled = false;
-    private Map<String, String> quickChatSymbols = new LinkedHashMap<>(); // symbol -> channel name
 
     public WerchatConfig(WerchatPlugin plugin) {
         this.plugin = plugin;
@@ -52,10 +51,6 @@ public class WerchatConfig {
     }
 
     private void initDefaults() {
-        // Default quick chat symbols
-        quickChatSymbols.put("!", "Global");
-        quickChatSymbols.put("~", "Trade");
-
         // Default filtered words
         filteredWords.addAll(Arrays.asList(
             "fuck", "shit", "bitch", "cunt", "dick", "pussy",
@@ -115,13 +110,6 @@ public class WerchatConfig {
                 if (root.has("quickChat")) {
                     JsonObject qc = root.getAsJsonObject("quickChat");
                     if (qc.has("enabled")) quickChatEnabled = qc.get("enabled").getAsBoolean();
-                    if (qc.has("symbols")) {
-                        quickChatSymbols.clear();
-                        JsonObject symbols = qc.getAsJsonObject("symbols");
-                        for (Map.Entry<String, JsonElement> entry : symbols.entrySet()) {
-                            quickChatSymbols.put(entry.getKey(), entry.getValue().getAsString());
-                        }
-                    }
                 }
 
                 plugin.getLogger().at(Level.INFO).log("Configuration loaded from config.json");
@@ -179,11 +167,6 @@ public class WerchatConfig {
             // Quick Chat
             JsonObject qc = new JsonObject();
             qc.addProperty("enabled", quickChatEnabled);
-            JsonObject symbols = new JsonObject();
-            for (Map.Entry<String, String> entry : quickChatSymbols.entrySet()) {
-                symbols.addProperty(entry.getKey(), entry.getValue());
-            }
-            qc.add("symbols", symbols);
             root.add("quickChat", qc);
 
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -226,32 +209,4 @@ public class WerchatConfig {
 
     // Quick Chat
     public boolean isQuickChatEnabled() { return quickChatEnabled; }
-    public Map<String, String> getQuickChatSymbols() { return quickChatSymbols; }
-
-    /**
-     * Check if a message starts with a quick chat symbol.
-     * Returns the channel name if matched, null otherwise.
-     */
-    public String getQuickChatChannel(String message) {
-        if (!quickChatEnabled || message == null || message.isEmpty()) return null;
-        for (Map.Entry<String, String> entry : quickChatSymbols.entrySet()) {
-            if (message.startsWith(entry.getKey())) {
-                return entry.getValue();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get the length of the quick chat symbol that matched, so it can be removed from the message.
-     */
-    public int getQuickChatSymbolLength(String message) {
-        if (!quickChatEnabled || message == null || message.isEmpty()) return 0;
-        for (String symbol : quickChatSymbols.keySet()) {
-            if (message.startsWith(symbol)) {
-                return symbol.length();
-            }
-        }
-        return 0;
-    }
 }

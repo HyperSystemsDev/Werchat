@@ -58,12 +58,36 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 
 ## Permissions
 
-All commands are available to players in Adventure mode by default. The following permission nodes provide fine-grained control:
+All permissions are grant-based. Players need the relevant permission node (or `werchat.*` / `*`) to use each command.
+
+### Wildcards
 
 | Permission | Description |
 |------------|-------------|
 | `*` | Grants all permissions (includes all werchat permissions) |
 | `werchat.*` | Grants all Werchat permissions |
+
+### Player Commands
+
+| Permission | Description |
+|------------|-------------|
+| `werchat.list` | List available channels (`/ch list`) |
+| `werchat.join` | Join channels (`/ch join`) |
+| `werchat.leave` | Leave channels (`/ch leave`) |
+| `werchat.switch` | Switch focused channel (`/ch <name>`) |
+| `werchat.who` | View online members (`/ch who`) |
+| `werchat.info` | View channel details (`/ch info`) |
+| `werchat.msg` | Send private messages (`/msg`, `/r`) |
+| `werchat.ignore` | Ignore/unignore players (`/ignore`) |
+| `werchat.playernick` | Set a player nickname |
+| `werchat.nickcolor` | Use colors in player nicknames |
+| `werchat.msgcolor` | Set custom message colors |
+| `werchat.quickchat` | Use quick chat symbol triggers |
+
+### Channel Management
+
+| Permission | Description |
+|------------|-------------|
 | `werchat.create` | Create new channels |
 | `werchat.remove` | Delete any channel |
 | `werchat.color` | Change any channel's color |
@@ -74,8 +98,6 @@ All commands are available to players in Adventure mode by default. The followin
 | `werchat.distance` | Set chat range on any channel |
 | `werchat.ban` | Ban/unban players from any channel |
 | `werchat.mute` | Mute/unmute players in any channel |
-| `werchat.playernick` | Set a player nickname |
-| `werchat.nickcolor` | Use colors in player nicknames |
 
 **Note:** Management commands can also be used by **channel moderators** without needing explicit permissions. The creator of a channel automatically becomes its owner and moderator.
 
@@ -101,6 +123,9 @@ Werchat creates a `config.json` file in the plugin data directory with these opt
   "mentions": {
     "enabled": true,
     "color": "#FFFF55"
+  },
+  "quickChat": {
+    "enabled": false
   }
 }
 ```
@@ -179,9 +204,21 @@ Werchat creates these channels on first run:
   - Requires `werchat.msgcolor` permission
   - Supports solid colors and gradients
 - **Optional Channel Tags** - Hide `[Channel]` prefix by setting nick to empty in channels.json
+- **Quick Chat Symbol Triggers** - Send messages to specific channels without switching focus
+  - Prefix a message with `!` to send to Global, `~` for Trade, etc.
+  - Symbols configured per-channel via `quickChatSymbol` in channels.json
+  - Disabled by default, enable `quickChat.enabled` in config.json
+  - Requires `werchat.quickchat` permission
+- **Granular Permissions** - Separate permission nodes for all player commands
+  - `werchat.list`, `werchat.join`, `werchat.leave`, `werchat.switch`, `werchat.who`, `werchat.info`
+  - `werchat.msg` (private messages), `werchat.ignore` (ignore system)
+  - Help menu now hides admin commands from non-admin players
+- **EssentialsPlus Compatibility** - Respects mutes from EssentialsPlus and other plugins
+  - If another plugin cancels the chat event (e.g. muted player), Werchat will not process the message
 
 **Bug Fixes:**
 - Colon separator now white instead of gray
+- Removed welcome message spam on player connect
 
 ### v1.1.4
 **New Features:**

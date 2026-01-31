@@ -144,6 +144,10 @@ public class ChannelManager {
             obj.addProperty("owner", ch.getOwner().toString());
         }
 
+        if (ch.hasQuickChatSymbol()) {
+            obj.addProperty("quickChatSymbol", ch.getQuickChatSymbol());
+        }
+
         return obj;
     }
 
@@ -193,6 +197,10 @@ public class ChannelManager {
 
             if (obj.has("owner") && !obj.get("owner").isJsonNull()) {
                 ch.setOwner(UUID.fromString(obj.get("owner").getAsString()));
+            }
+
+            if (obj.has("quickChatSymbol") && !obj.get("quickChatSymbol").isJsonNull()) {
+                ch.setQuickChatSymbol(obj.get("quickChatSymbol").getAsString());
             }
 
             return ch;
@@ -253,6 +261,20 @@ public class ChannelManager {
             if (ch.getNick().toLowerCase().startsWith(lower)) return ch;
         }
 
+        return null;
+    }
+
+    /**
+     * Find a channel whose quickChatSymbol matches the start of the message.
+     * Returns null if no match found.
+     */
+    public Channel findChannelByQuickChatSymbol(String message) {
+        if (message == null || message.isEmpty()) return null;
+        for (Channel ch : channels.values()) {
+            if (ch.hasQuickChatSymbol() && message.startsWith(ch.getQuickChatSymbol())) {
+                return ch;
+            }
+        }
         return null;
     }
 

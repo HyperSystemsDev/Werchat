@@ -190,6 +190,11 @@ public class ChatListener {
     }
 
     public void onPlayerChat(PlayerChatEvent event) {
+        // Respect other plugins (e.g. EssentialsPlus mute) that cancelled the event
+        if (event.isCancelled()) {
+            return;
+        }
+
         // Capture the formatter from the event (kept for potential future use)
         Formatter externalFormatter = event.getFormatter();
 
@@ -202,15 +207,22 @@ public class ChatListener {
 
         // Check for quick chat symbol triggers (e.g. "!hello" routes to Global)
         Channel channel = null;
-        String quickChatTarget = config.getQuickChatChannel(message);
-        if (quickChatTarget != null) {
-            channel = channelManager.getChannel(quickChatTarget);
-            if (channel != null) {
-                // Remove the symbol prefix from the message
-                int symbolLen = config.getQuickChatSymbolLength(message);
-                message = message.substring(symbolLen).trim();
-                if (message.isEmpty()) {
-                    return; // Just the symbol with no message, ignore silently
+        if (config.isQuickChatEnabled()) {
+            Channel quickChatChannel = channelManager.findChannelByQuickChatSymbol(message);
+            if (quickChatChannel != null) {
+                // Check permission for quick chat
+                PermissionsModule qcPerms = PermissionsModule.get();
+                boolean hasQuickChat = qcPerms.hasPermission(senderId, "werchat.quickchat")
+                    || qcPerms.hasPermission(senderId, "werchat.*")
+                    || qcPerms.hasPermission(senderId, "*");
+
+                if (hasQuickChat) {
+                    channel = quickChatChannel;
+                    // Remove the symbol prefix from the message
+                    message = message.substring(quickChatChannel.getQuickChatSymbol().length()).trim();
+                    if (message.isEmpty()) {
+                        return; // Just the symbol with no message, ignore silently
+                    }
                 }
             }
         }

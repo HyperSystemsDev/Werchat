@@ -31,6 +31,7 @@ public class Channel {
     private String seePermission;
 
     private UUID owner;
+    private String quickChatSymbol; // e.g. "!" to allow "!hello" to route to this channel
 
     public Channel(String name) {
         this.name = name;
@@ -125,4 +126,7 @@ public class Channel {
     public String getSeePermission() { return seePermission; }
     public UUID getOwner() { return owner; }
     public void setOwner(UUID owner) { this.owner = owner; }
+    public String getQuickChatSymbol() { return quickChatSymbol; }
+    public void setQuickChatSymbol(String quickChatSymbol) { this.quickChatSymbol = quickChatSymbol; }
+    public boolean hasQuickChatSymbol() { return quickChatSymbol != null && !quickChatSymbol.isEmpty(); }
 }

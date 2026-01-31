@@ -4,6 +4,7 @@ import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
+import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.werchat.WerchatPlugin;
 import com.werchat.listeners.ChatListener;
@@ -41,6 +42,16 @@ public class ReplyCommand extends CommandBase {
         }
 
         UUID senderId = ctx.sender().getUuid();
+
+        // Check permission
+        PermissionsModule perms = PermissionsModule.get();
+        if (!perms.hasPermission(senderId, "werchat.msg")
+                && !perms.hasPermission(senderId, "werchat.*")
+                && !perms.hasPermission(senderId, "*")) {
+            ctx.sendMessage(Message.raw("You don't have permission to send private messages").color("#FF5555"));
+            return;
+        }
+
         PlayerRef sender = playerDataManager.getOnlinePlayer(senderId);
         if (sender == null) {
             ctx.sendMessage(Message.raw("Error: Sender not found").color("#FF0000"));
