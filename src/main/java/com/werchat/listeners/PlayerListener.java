@@ -49,11 +49,6 @@ public class PlayerListener {
             }
         }
 
-        // Welcome message
-        player.sendMessage(Message.join(
-            Message.raw("[Werchat] ").color("#55FF55"),
-            Message.raw("Type /ch help for channel commands").color("#AAAAAA")
-        ));
     }
 
     public void onPlayerDisconnect(PlayerDisconnectEvent event) {
