@@ -200,11 +200,28 @@ public class ChatListener {
         UUID senderId = sender.getUuid();
         String message = event.getContent();
 
-        // Get player's focused channel
-        String channelName = playerDataManager.getFocusedChannel(senderId);
-        Channel channel = channelManager.getChannel(channelName);
+        // Check for quick chat symbol triggers (e.g. "!hello" routes to Global)
+        Channel channel = null;
+        String quickChatTarget = config.getQuickChatChannel(message);
+        if (quickChatTarget != null) {
+            channel = channelManager.getChannel(quickChatTarget);
+            if (channel != null) {
+                // Remove the symbol prefix from the message
+                int symbolLen = config.getQuickChatSymbolLength(message);
+                message = message.substring(symbolLen).trim();
+                if (message.isEmpty()) {
+                    return; // Just the symbol with no message, ignore silently
+                }
+            }
+        }
+
+        // Fall back to player's focused channel
         if (channel == null) {
-            channel = channelManager.getDefaultChannel();
+            String channelName = playerDataManager.getFocusedChannel(senderId);
+            channel = channelManager.getChannel(channelName);
+            if (channel == null) {
+                channel = channelManager.getDefaultChannel();
+            }
         }
 
         // Check membership
