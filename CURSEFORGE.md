@@ -194,6 +194,12 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
+### v1.1.7
+**New Features:**
+- **Ignore Chat Cancellations** - Optional `ignoreChatCancellations` setting in config.json
+  - When enabled, Werchat processes chat even if another plugin cancelled the event
+  - Useful when running alongside plugins that have their own chat formatters
+
 ### v1.1.6
 **New Features:**
 - **Gradient Nicknames** - Set gradient colors for your display name
@@ -216,9 +222,14 @@ Werchat creates these channels on first run:
 - **EssentialsPlus Compatibility** - Respects mutes from EssentialsPlus and other plugins
   - If another plugin cancels the chat event (e.g. muted player), Werchat will not process the message
 
+**Improvements:**
+- Config auto-migration - new config fields are automatically added when updating Werchat
+- Default channels now include quick chat symbols (`!` for Global, `~` for Trade)
+
 **Bug Fixes:**
 - Colon separator now white instead of gray
 - Removed welcome message spam on player connect
+- Removed broken HyFactions integration
 
 ### v1.1.4
 **New Features:**
@@ -292,7 +303,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.6
+**Version:** 1.1.7
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT

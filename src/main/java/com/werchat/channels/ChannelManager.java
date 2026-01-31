@@ -69,6 +69,7 @@ public class ChannelManager {
         global.setDistance(0);
         global.setDefault(true);
         global.setAutoJoin(true);
+        global.setQuickChatSymbol("!");
         registerChannel(global);
         defaultChannel = global;
 
@@ -85,6 +86,7 @@ public class ChannelManager {
         trade.setColor(new Color(255, 215, 0));
         trade.setFormat("{nick} {sender}: {msg}");
         trade.setAutoJoin(true);
+        trade.setQuickChatSymbol("~");
         registerChannel(trade);
 
         Channel support = new Channel("Support");

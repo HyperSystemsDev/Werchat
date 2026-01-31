@@ -41,6 +41,9 @@ public class WerchatConfig {
     private boolean mentionsEnabled = true;
     private String mentionColor = "#FFFF55"; // Yellow
 
+    // Chat Cancellation
+    private boolean ignoreChatCancellations = false;
+
     // Quick Chat (symbol triggers to route messages to channels, configured per-channel in channels.json)
     private boolean quickChatEnabled = false;
 
@@ -106,6 +109,9 @@ public class WerchatConfig {
                     if (m.has("color")) mentionColor = m.get("color").getAsString();
                 }
 
+                // Chat Cancellation
+                if (root.has("ignoreChatCancellations")) ignoreChatCancellations = root.get("ignoreChatCancellations").getAsBoolean();
+
                 // Quick Chat
                 if (root.has("quickChat")) {
                     JsonObject qc = root.getAsJsonObject("quickChat");
@@ -113,6 +119,7 @@ public class WerchatConfig {
                 }
 
                 plugin.getLogger().at(Level.INFO).log("Configuration loaded from config.json");
+                save(); // Re-save to add any new config fields from updates
             } else {
                 save(); // Create default config
                 plugin.getLogger().at(Level.INFO).log("Created default config.json");
@@ -164,6 +171,9 @@ public class WerchatConfig {
             m.addProperty("color", mentionColor);
             root.add("mentions", m);
 
+            // Chat Cancellation
+            root.addProperty("ignoreChatCancellations", ignoreChatCancellations);
+
             // Quick Chat
             JsonObject qc = new JsonObject();
             qc.addProperty("enabled", quickChatEnabled);
@@ -206,6 +216,9 @@ public class WerchatConfig {
     // Mentions
     public boolean isMentionsEnabled() { return mentionsEnabled; }
     public String getMentionColor() { return mentionColor; }
+
+    // Chat Cancellation
+    public boolean isIgnoreChatCancellations() { return ignoreChatCancellations; }
 
     // Quick Chat
     public boolean isQuickChatEnabled() { return quickChatEnabled; }

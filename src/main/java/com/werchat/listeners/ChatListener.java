@@ -191,7 +191,7 @@ public class ChatListener {
 
     public void onPlayerChat(PlayerChatEvent event) {
         // Respect other plugins (e.g. EssentialsPlus mute) that cancelled the event
-        if (event.isCancelled()) {
+        if (event.isCancelled() && !config.isIgnoreChatCancellations()) {
             return;
         }
 
