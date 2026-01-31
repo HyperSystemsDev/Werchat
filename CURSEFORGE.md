@@ -183,15 +183,6 @@ Werchat creates these channels on first run:
 **Bug Fixes:**
 - Colon separator now white instead of gray
 
-### v1.1.5
-**New Features:**
-- **HyFactions Integration** (experimental) - Faction tags display in chat
-  - Format: `[FactionName] [Channel] [Prefix]PlayerName: message`
-  - Uses faction's configured color
-
-**Technical Changes:**
-- HyFactions is a soft dependency (reflection-based, no compile-time dependency)
-
 ### v1.1.4
 **New Features:**
 - **LuckPerms Support** - Prefixes and suffixes now work with LuckPerms in addition to HyperPerms

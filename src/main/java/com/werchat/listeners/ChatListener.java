@@ -47,14 +47,6 @@ public class ChatListener {
     private static Method metaDataGetPrefix = null;
     private static Method metaDataGetSuffix = null;
 
-    // HyFactions soft dependency
-    private static boolean hyFactionsChecked = false;
-    private static boolean hyFactionsAvailable = false;
-    private static Method claimManagerGetInstance = null;
-    private static Method getFactionFromPlayer = null;
-    private static Method factionGetName = null;
-    private static Method factionGetColor = null;
-
     public ChatListener(WerchatPlugin plugin) {
         this.plugin = plugin;
         this.channelManager = plugin.getChannelManager();
@@ -193,69 +185,6 @@ public class ChatListener {
                 }
             } catch (Exception ignored) {}
         }
-
-        return "";
-    }
-
-    /**
-     * Initialize HyFactions integration via reflection (soft dependency)
-     */
-    private void initHyFactions() {
-        if (hyFactionsChecked) return;
-        hyFactionsChecked = true;
-
-        try {
-            Class<?> claimManagerClass = Class.forName("com.kaws.hyfaction.claims.ClaimManager");
-            claimManagerGetInstance = claimManagerClass.getMethod("getInstance");
-
-            getFactionFromPlayer = claimManagerClass.getMethod("getFactionFromPlayer", UUID.class);
-
-            Class<?> factionInfoClass = Class.forName("com.kaws.hyfaction.factions.FactionInfo");
-            factionGetName = factionInfoClass.getMethod("getName");
-            factionGetColor = factionInfoClass.getMethod("getColor");
-
-            hyFactionsAvailable = true;
-            plugin.getLogger().at(Level.INFO).log("HyFactions integration enabled for faction tag display");
-        } catch (Exception e) {
-            hyFactionsAvailable = false;
-            plugin.getLogger().at(Level.WARNING).log("HyFactions integration failed: %s", e.getMessage());
-        }
-    }
-
-    /**
-     * Get player's faction tag from HyFactions (if available)
-     * Returns empty string if player has no faction or HyFactions not installed
-     */
-    private String getFactionTag(UUID playerId) {
-        initHyFactions();
-        if (!hyFactionsAvailable) {
-            return "";
-        }
-
-        try {
-            Object claimManager = claimManagerGetInstance.invoke(null);
-            Object factionInfo = getFactionFromPlayer.invoke(claimManager, playerId);
-
-            if (factionInfo != null) {
-                String name = (String) factionGetName.invoke(factionInfo);
-                if (name != null && !name.isEmpty()) {
-                    // Try to get faction color
-                    String color = "#AAAAAA"; // Default gray
-                    try {
-                        Object colorObj = factionGetColor.invoke(factionInfo);
-                        if (colorObj != null) {
-                            color = colorObj.toString();
-                            // Ensure it's a valid hex color
-                            if (!color.startsWith("#")) {
-                                color = "#" + color;
-                            }
-                        }
-                    } catch (Exception ignored) {}
-
-                    return color + "[" + name + "] ";
-                }
-            }
-        } catch (Exception ignored) {}
 
         return "";
     }
@@ -440,7 +369,7 @@ public class ChatListener {
 
     /**
      * Format message with mention highlighting for a specific recipient.
-     * Integrates with HyperPerms for prefix/suffix display.
+     * Integrates with permission plugins for prefix/suffix display.
      */
     private Message formatMessageForRecipient(Channel channel, PlayerRef sender, String message,
                                                UUID recipientId, Set<UUID> mentionedPlayers,
@@ -461,16 +390,8 @@ public class ChatListener {
         String prefix = getPrefix(senderId);
         String suffix = getSuffix(senderId);
 
-        // Get faction tag from HyFactions (if available)
-        String factionTag = getFactionTag(senderId);
-
         // Build the message parts
         List<Message> parts = new ArrayList<>();
-
-        // Faction tag (if any) - shown before channel tag
-        if (!factionTag.isEmpty()) {
-            parts.add(parseColoredString(factionTag));
-        }
 
         // Channel tag (skip if nick is empty)
         String channelNick = channel.getNick();
