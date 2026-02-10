@@ -345,8 +345,9 @@ public class ChatListener {
         // Find mentioned players
         Set<UUID> mentionedPlayers = config.isMentionsEnabled() ? findMentionedPlayers(message) : Collections.emptySet();
 
-        // Get sender position for distance check
+        // Get sender position and world for distance check
         double senderX = 0, senderY = 0, senderZ = 0;
+        UUID senderWorldId = null;
         boolean isLocal = channel.isLocal();
         int maxDistance = channel.getDistance();
 
@@ -356,6 +357,7 @@ public class ChatListener {
                 senderX = senderPos.x;
                 senderY = senderPos.y;
                 senderZ = senderPos.z;
+                senderWorldId = sender.getWorldUuid();
             } catch (Exception e) {
                 // If we can't get position, treat as global
                 isLocal = false;
@@ -369,9 +371,14 @@ public class ChatListener {
             }
             PlayerRef member = playerDataManager.getOnlinePlayer(memberId);
             if (member != null) {
-                // Check distance for local channels
+                // Check distance and world for local channels
                 if (isLocal && !memberId.equals(senderId)) {
                     try {
+                        // Must be in the same world
+                        UUID memberWorldId = member.getWorldUuid();
+                        if (senderWorldId != null && !senderWorldId.equals(memberWorldId)) {
+                            continue; // Different world
+                        }
                         var memberPos = member.getTransform().getPosition();
                         double dx = memberPos.x - senderX;
                         double dy = memberPos.y - senderY;
