@@ -6,6 +6,8 @@ import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.werchat.WerchatPlugin;
 import com.werchat.channels.Channel;
 import com.werchat.channels.ChannelManager;
@@ -44,7 +46,7 @@ public class ChannelCommand extends CommandBase {
         if (perms.hasPermission(playerId, "*") || perms.hasPermission(playerId, "werchat.*")) return true;
         String[] adminPerms = {"werchat.create", "werchat.remove", "werchat.color", "werchat.nick",
             "werchat.password", "werchat.rename", "werchat.mod", "werchat.distance",
-            "werchat.ban", "werchat.mute"};
+            "werchat.ban", "werchat.mute", "werchat.world"};
         for (String perm : adminPerms) {
             if (perms.hasPermission(playerId, perm)) return true;
         }
@@ -88,6 +90,7 @@ public class ChannelCommand extends CommandBase {
         String arg1 = parts.length > 2 ? parts[2] : null;
         String arg2 = parts.length > 3 ? parts[3] : null;
         String arg3 = parts.length > 4 ? parts[4] : null;
+        String arg4 = parts.length > 5 ? parts[5] : null;
 
         // Get everything after the subcommand (for broadcast message)
         String rawArgs = "";
@@ -159,10 +162,10 @@ public class ChannelCommand extends CommandBase {
             }
             case "color" -> {
                 if (arg1 == null || arg2 == null) {
-                    ctx.sendMessage(Message.raw("Usage: /ch color <channel> <#hex>").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Usage: /ch color <channel> <#tag> [#text]").color("#FF5555"));
                     return;
                 }
-                setChannelColor(ctx, playerId, arg1, arg2);
+                setChannelColor(ctx, playerId, arg1, arg2, arg3);
                 return;
             }
             case "password", "pass" -> {
@@ -266,22 +269,33 @@ public class ChannelCommand extends CommandBase {
                 unmutePlayer(ctx, playerId, arg1, arg2);
                 return;
             }
+            case "world" -> {
+                if (arg1 == null || arg2 == null) {
+                    ctx.sendMessage(Message.raw("Usage: /ch world <channel> add|remove <world>").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("       /ch world <channel> none").color("#FF5555"));
+                    return;
+                }
+                setChannelWorld(ctx, playerId, arg1, arg2, arg3);
+                return;
+            }
             case "playernick", "pnick", "nickname" -> {
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch playernick <name> [#color] [#gradientEnd]").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Admin: /ch playernick <player> <name> [#color] [#gradient]").color("#FF5555"));
                     ctx.sendMessage(Message.raw("Use /ch playernick reset to clear").color("#AAAAAA"));
                     return;
                 }
-                setPlayerNickname(ctx, playerId, arg1, arg2, arg3);
+                setPlayerNickname(ctx, playerId, arg1, arg2, arg3, arg4);
                 return;
             }
             case "msgcolor", "messagecolor", "chatcolor" -> {
                 if (arg1 == null) {
                     ctx.sendMessage(Message.raw("Usage: /ch msgcolor <#color> [#gradientEnd]").color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Admin: /ch msgcolor <player> <#color> [#gradient]").color("#FF5555"));
                     ctx.sendMessage(Message.raw("Use /ch msgcolor reset to clear").color("#AAAAAA"));
                     return;
                 }
-                setMessageColor(ctx, playerId, arg1, arg2);
+                setMessageColor(ctx, playerId, arg1, arg2, arg3);
                 return;
             }
         }
@@ -386,7 +400,7 @@ public class ChannelCommand extends CommandBase {
                 Message.raw("  Create channel").color("#AAAAAA")
             ));
             ctx.sendMessage(Message.join(
-                Message.raw("  /ch color <ch> <#hex>").color("#FFFFFF"),
+                Message.raw("  /ch color <ch> <#tag> [#text]").color("#FFFFFF"),
                 Message.raw("  Set color").color("#AAAAAA")
             ));
             ctx.sendMessage(Message.join(
@@ -418,6 +432,10 @@ public class ChannelCommand extends CommandBase {
                 Message.raw("  Set range (0=global)").color("#AAAAAA")
             ));
             ctx.sendMessage(Message.join(
+                Message.raw("  /ch world <ch> add|remove <world>").color("#FFFFFF"),
+                Message.raw("  World restriction").color("#AAAAAA")
+            ));
+            ctx.sendMessage(Message.join(
                 Message.raw("  /ch ban <ch> <player>").color("#FFFFFF"),
                 Message.raw("  Ban player").color("#AAAAAA")
             ));
@@ -443,6 +461,7 @@ public class ChannelCommand extends CommandBase {
         for (Channel ch : channelManager.getAllChannels()) {
             String status = ch.isMember(playerId) ? " [Joined]" : "";
             if (ch.getName().equalsIgnoreCase(focused)) status += " [*]";
+            if (ch.isWorldRestricted()) status += " [W:" + ch.getWorldsDisplay() + "]";
             ctx.sendMessage(Message.raw("[" + ch.getNick() + "] " + ch.getName() + " (" + ch.getMemberCount() + ")" + status).color(ch.getColorHex()));
         }
     }
@@ -549,7 +568,7 @@ public class ChannelCommand extends CommandBase {
         }
     }
 
-    private void setChannelColor(CommandContext ctx, UUID playerId, String channelName, String hexColor) {
+    private void setChannelColor(CommandContext ctx, UUID playerId, String channelName, String hexColor, String textHexColor) {
         Channel channel = channelManager.findChannel(channelName);
         if (channel == null) {
             ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
@@ -565,11 +584,34 @@ public class ChannelCommand extends CommandBase {
             int g = Integer.parseInt(hex.substring(2, 4), 16);
             int b = Integer.parseInt(hex.substring(4, 6), 16);
             channel.setColor(new java.awt.Color(r, g, b));
+
+            if (textHexColor != null && !textHexColor.isEmpty()) {
+                // Two colors: first is tag, second is message text
+                String textHex = textHexColor.startsWith("#") ? textHexColor.substring(1) : textHexColor;
+                int tr = Integer.parseInt(textHex.substring(0, 2), 16);
+                int tg = Integer.parseInt(textHex.substring(2, 4), 16);
+                int tb = Integer.parseInt(textHex.substring(4, 6), 16);
+                channel.setMessageColor(new java.awt.Color(tr, tg, tb));
+            } else {
+                // One color: clear separate message color (tag color used for both)
+                channel.setMessageColor(null);
+            }
+
             channelManager.saveChannels();
-            ctx.sendMessage(Message.join(
-                Message.raw("Color set to ").color("#AAAAAA"),
-                Message.raw(channel.getColorHex()).color(channel.getColorHex())
-            ));
+
+            if (channel.hasMessageColor()) {
+                ctx.sendMessage(Message.join(
+                    Message.raw("Tag color: ").color("#AAAAAA"),
+                    Message.raw(channel.getColorHex()).color(channel.getColorHex()),
+                    Message.raw("  Text color: ").color("#AAAAAA"),
+                    Message.raw(channel.getMessageColorHex()).color(channel.getMessageColorHex())
+                ));
+            } else {
+                ctx.sendMessage(Message.join(
+                    Message.raw("Color set to ").color("#AAAAAA"),
+                    Message.raw(channel.getColorHex()).color(channel.getColorHex())
+                ));
+            }
         } catch (Exception e) {
             ctx.sendMessage(Message.raw("Invalid color. Use hex format: #FF5555").color("#FF5555"));
         }
@@ -635,9 +677,15 @@ public class ChannelCommand extends CommandBase {
             Message.raw(channel.getNick()).color("#FFFFFF")
         ));
         ctx.sendMessage(Message.join(
-            Message.raw("  Color: ").color("#AAAAAA"),
+            Message.raw("  Tag Color: ").color("#AAAAAA"),
             Message.raw(channel.getColorHex()).color(channel.getColorHex())
         ));
+        if (channel.hasMessageColor()) {
+            ctx.sendMessage(Message.join(
+                Message.raw("  Text Color: ").color("#AAAAAA"),
+                Message.raw(channel.getMessageColorHex()).color(channel.getMessageColorHex())
+            ));
+        }
         ctx.sendMessage(Message.join(
             Message.raw("  Members: ").color("#AAAAAA"),
             Message.raw(String.valueOf(channel.getMemberCount())).color("#FFFFFF")
@@ -649,6 +697,10 @@ public class ChannelCommand extends CommandBase {
         ctx.sendMessage(Message.join(
             Message.raw("  Range: ").color("#AAAAAA"),
             Message.raw(channel.isGlobal() ? "Global" : channel.getDistance() + " blocks").color("#FFFFFF")
+        ));
+        ctx.sendMessage(Message.join(
+            Message.raw("  Worlds: ").color("#AAAAAA"),
+            Message.raw(channel.getWorldsDisplay()).color("#FFFFFF")
         ));
 
         // Show moderators
@@ -936,18 +988,149 @@ public class ChannelCommand extends CommandBase {
         ));
     }
 
-    private static final int MAX_NICKNAME_LENGTH = 20;
-
-    private void setPlayerNickname(CommandContext ctx, UUID playerId, String nickname, String color, String gradientEnd) {
-        // Handle reset (no permission needed to clear)
-        if (nickname.equalsIgnoreCase("reset") || nickname.equalsIgnoreCase("clear") || nickname.equalsIgnoreCase("off")) {
-            playerDataManager.clearNickname(playerId);
-            ctx.sendMessage(Message.raw("Nickname cleared").color("#55FF55"));
+    private void setChannelWorld(CommandContext ctx, UUID playerId, String channelName, String action, String worldName) {
+        Channel channel = channelManager.findChannel(channelName);
+        if (channel == null) {
+            ctx.sendMessage(Message.raw("Channel not found: " + channelName).color("#FF5555"));
+            return;
+        }
+        if (!hasWerchatPermission(ctx, "werchat.world") && !channel.isModerator(playerId)) {
+            ctx.sendMessage(Message.raw("You must be a channel moderator to do that").color("#FF5555"));
             return;
         }
 
-        // Check permission to set nickname
-        if (!hasWerchatPermission(ctx, "werchat.playernick")) {
+        if (action.equalsIgnoreCase("none") || action.equalsIgnoreCase("clear") || action.equalsIgnoreCase("off")) {
+            channel.clearWorlds();
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.join(
+                Message.raw(channel.getName()).color(channel.getColorHex()),
+                Message.raw(" is no longer world-restricted").color("#55FF55")
+            ));
+        } else if (action.equalsIgnoreCase("add")) {
+            if (worldName == null || worldName.isEmpty()) {
+                ctx.sendMessage(Message.raw("Usage: /ch world <channel> add <world>").color("#FF5555"));
+                return;
+            }
+            // Validate that the world exists
+            try {
+                World world = Universe.get().getWorld(worldName);
+                if (world == null) {
+                    ctx.sendMessage(Message.raw("World not found: " + worldName).color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Make sure the world name matches exactly").color("#AAAAAA"));
+                    return;
+                }
+            } catch (Exception e) {
+                ctx.sendMessage(Message.raw("Could not verify world: " + worldName).color("#FFAA00"));
+                ctx.sendMessage(Message.raw("Adding anyway - will take effect when world is loaded").color("#AAAAAA"));
+            }
+
+            channel.addWorld(worldName);
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.join(
+                Message.raw("Added world ").color("#55FF55"),
+                Message.raw(worldName).color("#FFFFFF"),
+                Message.raw(" to ").color("#55FF55"),
+                Message.raw(channel.getName()).color(channel.getColorHex()),
+                Message.raw(" (" + channel.getWorldsDisplay() + ")").color("#AAAAAA")
+            ));
+        } else if (action.equalsIgnoreCase("remove") || action.equalsIgnoreCase("rem")) {
+            if (worldName == null || worldName.isEmpty()) {
+                ctx.sendMessage(Message.raw("Usage: /ch world <channel> remove <world>").color("#FF5555"));
+                return;
+            }
+            if (!channel.getWorlds().contains(worldName)) {
+                ctx.sendMessage(Message.join(
+                    Message.raw(worldName).color("#FFFFFF"),
+                    Message.raw(" is not in ").color("#FF5555"),
+                    Message.raw(channel.getName()).color(channel.getColorHex()),
+                    Message.raw("'s world list").color("#FF5555")
+                ));
+                return;
+            }
+            channel.removeWorld(worldName);
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.join(
+                Message.raw("Removed world ").color("#55FF55"),
+                Message.raw(worldName).color("#FFFFFF"),
+                Message.raw(" from ").color("#55FF55"),
+                Message.raw(channel.getName()).color(channel.getColorHex()),
+                Message.raw(" (" + channel.getWorldsDisplay() + ")").color("#AAAAAA")
+            ));
+        } else {
+            // Backward compat: treat as single world set (e.g., /ch world Global myworld)
+            try {
+                World world = Universe.get().getWorld(action);
+                if (world == null) {
+                    ctx.sendMessage(Message.raw("Unknown action: " + action).color("#FF5555"));
+                    ctx.sendMessage(Message.raw("Usage: /ch world <channel> add|remove <world>").color("#AAAAAA"));
+                    ctx.sendMessage(Message.raw("       /ch world <channel> none").color("#AAAAAA"));
+                    return;
+                }
+            } catch (Exception e) {
+                ctx.sendMessage(Message.raw("Unknown action: " + action).color("#FF5555"));
+                ctx.sendMessage(Message.raw("Usage: /ch world <channel> add|remove <world>").color("#AAAAAA"));
+                ctx.sendMessage(Message.raw("       /ch world <channel> none").color("#AAAAAA"));
+                return;
+            }
+
+            // World name provided directly - set as the only world
+            channel.setWorld(action);
+            channelManager.saveChannels();
+            ctx.sendMessage(Message.join(
+                Message.raw(channel.getName()).color(channel.getColorHex()),
+                Message.raw(" is now restricted to world: ").color("#55FF55"),
+                Message.raw(action).color("#FFFFFF")
+            ));
+        }
+    }
+
+    private static final int MAX_NICKNAME_LENGTH = 20;
+
+    private void setPlayerNickname(CommandContext ctx, UUID playerId, String arg1, String arg2, String arg3, String arg4) {
+        // Detect admin mode: if arg1 matches an online player (not self) and sender has permission
+        UUID targetId = playerId;
+        String targetName = null;
+        String nickname;
+        String color;
+        String gradientEnd;
+
+        PlayerRef targetPlayer = playerDataManager.findPlayerByName(arg1);
+        boolean isAdminMode = targetPlayer != null
+                && !targetPlayer.getUuid().equals(playerId)
+                && hasWerchatPermission(ctx, "werchat.playernick.others");
+
+        if (isAdminMode) {
+            // Admin mode: /ch playernick <player> <name> [#color] [#gradient]
+            targetId = targetPlayer.getUuid();
+            targetName = targetPlayer.getUsername();
+            nickname = arg2;
+            color = arg3;
+            gradientEnd = arg4;
+
+            if (nickname == null) {
+                ctx.sendMessage(Message.raw("Usage: /ch playernick <player> <name> [#color] [#gradient]").color("#FF5555"));
+                return;
+            }
+        } else {
+            // Self mode: /ch playernick <name> [#color] [#gradient]
+            nickname = arg1;
+            color = arg2;
+            gradientEnd = arg3;
+        }
+
+        // Handle reset
+        if (nickname.equalsIgnoreCase("reset") || nickname.equalsIgnoreCase("clear") || nickname.equalsIgnoreCase("off")) {
+            playerDataManager.clearNickname(targetId);
+            if (targetName != null) {
+                ctx.sendMessage(Message.raw("Nickname cleared for " + targetName).color("#55FF55"));
+            } else {
+                ctx.sendMessage(Message.raw("Nickname cleared").color("#55FF55"));
+            }
+            return;
+        }
+
+        // Check permission (self mode only - admin already checked above)
+        if (targetName == null && !hasWerchatPermission(ctx, "werchat.playernick")) {
             ctx.sendMessage(Message.raw("You don't have permission to set nicknames").color("#FF5555"));
             return;
         }
@@ -958,24 +1141,28 @@ public class ChannelCommand extends CommandBase {
             return;
         }
 
-        // Check for impersonation - can't use another player's username
-        for (PlayerRef online : playerDataManager.getOnlinePlayers()) {
-            if (online.getUuid().equals(playerId)) continue; // Skip self
-            if (online.getUsername().equalsIgnoreCase(nickname)) {
-                ctx.sendMessage(Message.raw("You cannot use another player's username as your nickname").color("#FF5555"));
-                return;
+        // Check for impersonation - can't use another player's username (admins bypass this)
+        if (targetName == null) {
+            for (PlayerRef online : playerDataManager.getOnlinePlayers()) {
+                if (online.getUuid().equals(playerId)) continue; // Skip self
+                if (online.getUsername().equalsIgnoreCase(nickname)) {
+                    ctx.sendMessage(Message.raw("You cannot use another player's username as your nickname").color("#FF5555"));
+                    return;
+                }
             }
         }
 
+        String prefix = targetName != null ? targetName + "'s nickname" : "Nickname";
+
         // Set nickname
-        playerDataManager.setNickname(playerId, nickname);
+        playerDataManager.setNickname(targetId, nickname);
 
         // Handle color if provided
         if (color != null && !color.isEmpty()) {
-            // Check permission for colors
-            if (!hasWerchatPermission(ctx, "werchat.nickcolor")) {
+            // Check permission for colors (self mode only)
+            if (targetName == null && !hasWerchatPermission(ctx, "werchat.nickcolor")) {
                 ctx.sendMessage(Message.join(
-                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(prefix + " set to: ").color("#AAAAAA"),
                     Message.raw(nickname).color("#FFFFFF")
                 ));
                 ctx.sendMessage(Message.raw("You need werchat.nickcolor permission for colors").color("#FFAA00"));
@@ -988,7 +1175,7 @@ public class ChannelCommand extends CommandBase {
                 ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
                 return;
             }
-            playerDataManager.setNickColor(playerId, startHex);
+            playerDataManager.setNickColor(targetId, startHex);
 
             // Handle gradient if second color provided
             if (gradientEnd != null && !gradientEnd.isEmpty()) {
@@ -997,26 +1184,25 @@ public class ChannelCommand extends CommandBase {
                     ctx.sendMessage(Message.raw("Invalid gradient end color. Use #RRGGBB (e.g., #5555FF)").color("#FF5555"));
                     return;
                 }
-                playerDataManager.setNickGradientEnd(playerId, endHex);
-                // Show gradient preview
+                playerDataManager.setNickGradientEnd(targetId, endHex);
                 ctx.sendMessage(Message.join(
-                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(prefix + " set to: ").color("#AAAAAA"),
                     createGradientPreview(nickname, startHex, endHex)
                 ));
             } else {
                 // Clear any existing gradient
-                playerDataManager.setNickGradientEnd(playerId, null);
+                playerDataManager.setNickGradientEnd(targetId, null);
                 ctx.sendMessage(Message.join(
-                    Message.raw("Nickname set to: ").color("#AAAAAA"),
+                    Message.raw(prefix + " set to: ").color("#AAAAAA"),
                     Message.raw(nickname).color(startHex)
                 ));
             }
         } else {
             // Clear colors
-            playerDataManager.setNickColor(playerId, null);
-            playerDataManager.setNickGradientEnd(playerId, null);
+            playerDataManager.setNickColor(targetId, null);
+            playerDataManager.setNickGradientEnd(targetId, null);
             ctx.sendMessage(Message.join(
-                Message.raw("Nickname set to: ").color("#AAAAAA"),
+                Message.raw(prefix + " set to: ").color("#AAAAAA"),
                 Message.raw(nickname).color("#FFFFFF")
             ));
         }
@@ -1052,16 +1238,58 @@ public class ChannelCommand extends CommandBase {
         return Message.join(parts.toArray(new Message[0]));
     }
 
-    private void setMessageColor(CommandContext ctx, UUID playerId, String color, String gradientEnd) {
+    private void setMessageColor(CommandContext ctx, UUID playerId, String arg1, String arg2, String arg3) {
+        // Detect if arg1 is a player name (admin mode) or a color (self mode)
+        // Colors start with # or are reset keywords
+        boolean isResetKeyword = arg1.equalsIgnoreCase("reset") || arg1.equalsIgnoreCase("clear") || arg1.equalsIgnoreCase("off");
+        boolean isColor = arg1.startsWith("#") || isResetKeyword;
+
+        UUID targetId;
+        String targetName;
+        String color;
+        String gradientEnd;
+
+        if (isColor) {
+            // Self mode: /ch msgcolor <#color> [#gradient]
+            targetId = playerId;
+            targetName = null;
+            color = arg1;
+            gradientEnd = arg2;
+        } else {
+            // Admin mode: /ch msgcolor <player> <#color> [#gradient]
+            if (!hasWerchatPermission(ctx, "werchat.msgcolor.others")) {
+                ctx.sendMessage(Message.raw("You don't have permission to set other players' message colors").color("#FF5555"));
+                return;
+            }
+            PlayerRef target = playerDataManager.findPlayerByName(arg1);
+            if (target == null) {
+                ctx.sendMessage(Message.raw("Player not found: " + arg1).color("#FF5555"));
+                return;
+            }
+            targetId = target.getUuid();
+            targetName = target.getUsername();
+            color = arg2;
+            gradientEnd = arg3;
+
+            if (color == null) {
+                ctx.sendMessage(Message.raw("Usage: /ch msgcolor <player> <#color> [#gradient]").color("#FF5555"));
+                return;
+            }
+        }
+
         // Handle reset
         if (color.equalsIgnoreCase("reset") || color.equalsIgnoreCase("clear") || color.equalsIgnoreCase("off")) {
-            playerDataManager.clearMsgColor(playerId);
-            ctx.sendMessage(Message.raw("Message color cleared (using channel color)").color("#55FF55"));
+            playerDataManager.clearMsgColor(targetId);
+            if (targetName != null) {
+                ctx.sendMessage(Message.raw("Message color cleared for " + targetName).color("#55FF55"));
+            } else {
+                ctx.sendMessage(Message.raw("Message color cleared (using channel color)").color("#55FF55"));
+            }
             return;
         }
 
-        // Check permission
-        if (!hasWerchatPermission(ctx, "werchat.msgcolor")) {
+        // Check permission (self mode only - admin already checked above)
+        if (targetName == null && !hasWerchatPermission(ctx, "werchat.msgcolor")) {
             ctx.sendMessage(Message.raw("You don't have permission to set message colors").color("#FF5555"));
             return;
         }
@@ -1072,7 +1300,9 @@ public class ChannelCommand extends CommandBase {
             ctx.sendMessage(Message.raw("Invalid color format. Use #RRGGBB (e.g., #FF5555)").color("#FF5555"));
             return;
         }
-        playerDataManager.setMsgColor(playerId, startHex);
+        playerDataManager.setMsgColor(targetId, startHex);
+
+        String prefix = targetName != null ? targetName + "'s message color" : "Message color";
 
         // Handle gradient if second color provided
         if (gradientEnd != null && !gradientEnd.isEmpty()) {
@@ -1081,17 +1311,16 @@ public class ChannelCommand extends CommandBase {
                 ctx.sendMessage(Message.raw("Invalid gradient end color. Use #RRGGBB (e.g., #5555FF)").color("#FF5555"));
                 return;
             }
-            playerDataManager.setMsgGradientEnd(playerId, endHex);
-            // Show gradient preview
+            playerDataManager.setMsgGradientEnd(targetId, endHex);
             ctx.sendMessage(Message.join(
-                Message.raw("Message color set to: ").color("#AAAAAA"),
+                Message.raw(prefix + " set to: ").color("#AAAAAA"),
                 createGradientPreview("Example message", startHex, endHex)
             ));
         } else {
             // Clear any existing gradient
-            playerDataManager.setMsgGradientEnd(playerId, null);
+            playerDataManager.setMsgGradientEnd(targetId, null);
             ctx.sendMessage(Message.join(
-                Message.raw("Message color set to: ").color("#AAAAAA"),
+                Message.raw(prefix + " set to: ").color("#AAAAAA"),
                 Message.raw("Example message").color(startHex)
             ));
         }

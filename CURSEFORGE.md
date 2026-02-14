@@ -12,11 +12,12 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 - **Local/Global Chat** - Distance-based local channels or server-wide global channels
 - **Persistent Storage** - All channel settings saved to disk
 
-### New in v1.1.6
+### New in v1.1.8
 
-- **Gradient Nicknames** - `/ch playernick <name> #startColor #endColor` for rainbow names
-- **Custom Message Colors** - `/ch msgcolor #color [#gradient]` to override channel colors
-- **Optional Channel Tags** - Set channel nick to empty to hide the `[Channel]` prefix
+- **Separate Tag & Text Colors** - `/ch color <channel> <#tag> [#text]` for independent tag/message colors
+- **Per-Channel Quick Chat** - Enable/disable quick chat symbols per channel in `channels.json`
+- **Split Config Files** - Channel settings and member data stored separately for cleaner configs
+- **Player Names in Member Data** - `channel-members.json` shows usernames alongside UUIDs
 
 ## Commands
 
@@ -35,8 +36,10 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 | `/r <message>` | Reply to last private message |
 | `/ignore <player>` | Toggle ignoring a player |
 | `/ignorelist` | Show your ignored players |
-| `/ch playernick <name> [#color]` | Set your display nickname |
+| `/ch playernick <name> [#color] [#gradient]` | Set your display nickname |
 | `/ch playernick reset` | Clear your nickname |
+| `/ch msgcolor <#color> [#gradient]` | Set your message color |
+| `/ch msgcolor reset` | Clear your message color |
 
 ### Channel Management (Moderators/Permission Holders)
 
@@ -44,17 +47,20 @@ A fully-featured chat channel system for Hytale servers. Organize player communi
 |---------|------------|-------------|
 | `/ch create <name>` | `werchat.create` | Create a new channel |
 | `/ch remove <channel>` | `werchat.remove` | Delete a channel |
-| `/ch color <channel> <#hex>` | `werchat.color` | Set channel color (e.g., `#FF5555`) |
+| `/ch color <channel> <#tag> [#text]` | `werchat.color` | Set channel tag color and optional text color |
 | `/ch nick <channel> <nick>` | `werchat.nick` | Set channel shortcut/nickname |
 | `/ch password <channel> [pw]` | `werchat.password` | Set or clear channel password |
 | `/ch rename <channel> <newname>` | `werchat.rename` | Rename a channel |
 | `/ch mod <channel> <player>` | `werchat.mod` | Add a channel moderator |
 | `/ch unmod <channel> <player>` | `werchat.mod` | Remove a channel moderator |
 | `/ch distance <channel> <blocks>` | `werchat.distance` | Set chat range (0 = global) |
+| `/ch world <channel> add\|remove <world>` | `werchat.world` | Add/remove world restrictions |
 | `/ch ban <channel> <player>` | `werchat.ban` | Ban player from channel |
 | `/ch unban <channel> <player>` | `werchat.ban` | Unban player from channel |
 | `/ch mute <channel> <player>` | `werchat.mute` | Mute player in channel |
 | `/ch unmute <channel> <player>` | `werchat.mute` | Unmute player in channel |
+| `/ch playernick <player> <name> [#color] [#gradient]` | `werchat.playernick.others` | Set another player's nickname |
+| `/ch msgcolor <player> <#color> [#gradient]` | `werchat.msgcolor.others` | Set another player's message color |
 
 ## Permissions
 
@@ -96,8 +102,11 @@ All permissions are grant-based. Players need the relevant permission node (or `
 | `werchat.rename` | Rename any channel |
 | `werchat.mod` | Add/remove moderators on any channel |
 | `werchat.distance` | Set chat range on any channel |
+| `werchat.world` | Set world restriction on any channel |
 | `werchat.ban` | Ban/unban players from any channel |
 | `werchat.mute` | Mute/unmute players in any channel |
+| `werchat.playernick.others` | Set/clear another player's nickname |
+| `werchat.msgcolor.others` | Set/clear another player's message color |
 
 **Note:** Management commands can also be used by **channel moderators** without needing explicit permissions. The creator of a channel automatically becomes its owner and moderator.
 
@@ -123,9 +132,6 @@ Werchat creates a `config.json` file in the plugin data directory with these opt
   "mentions": {
     "enabled": true,
     "color": "#FFFF55"
-  },
-  "quickChat": {
-    "enabled": false
   }
 }
 ```
@@ -136,6 +142,19 @@ Werchat creates a `config.json` file in the plugin data directory with these opt
 - **block**: Blocks the entire message from being sent
 
 **Note:** Admins (players with `*` or `werchat.*` permission) bypass the word filter. A default list of common profanity is included - customize via `config.json`.
+
+## Data Files
+
+Werchat stores its data in the plugin directory (`mods/com.werchat_Werchat/`):
+
+| File | Purpose |
+|------|---------|
+| `config.json` | Global settings (word filter, cooldown, mentions) |
+| `channels.json` | Channel settings (colors, format, distance, quick chat, etc.) |
+| `channel-members.json` | Channel membership, moderators, bans, mutes (with player names) |
+| `nicknames.json` | Player nicknames and custom colors |
+
+`channels.json` is safe to hand-edit. `channel-members.json` shows player usernames next to UUIDs for readability — only the UUIDs are used when loading.
 
 ## @Mentions
 
@@ -164,6 +183,41 @@ Example: `Hey @Wer check this out!`
 
 Players are notified when banned or muted with a configurable message.
 
+## Per-World Channels
+
+Channels can be restricted to one or more worlds. When a channel has worlds set, only players in those worlds can send and receive messages in the channel.
+
+### Configuration
+
+Set the `"worlds"` field in `channels.json`:
+
+```json
+{
+  "name": "Mining",
+  "nick": "Mining",
+  "color": "#FFD700",
+  "messageColor": "",
+  "format": "{nick} {sender}: {msg}",
+  "distance": 0,
+  "worlds": ["mining-world", "cave-world"],
+  "password": null,
+  "quickChatSymbol": "",
+  "quickChatEnabled": false,
+  "isDefault": false,
+  "autoJoin": true
+}
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ch world <channel> add <world>` | Add a world to the restriction list |
+| `/ch world <channel> remove <world>` | Remove a world from the list |
+| `/ch world <channel> none` | Clear all world restrictions |
+
+An empty `"worlds": []` means the channel is available in all worlds.
+
 ## Local vs Global Channels
 
 Channels can be **global** (server-wide) or **local** (distance-based):
@@ -186,7 +240,7 @@ Werchat creates these channels on first run:
 
 ## Installation
 
-1. Download `Werchat-1.1.3.jar`
+1. Download `Werchat-1.1.8.jar`
 2. Place in your Hytale server's `Mods` folder
 3. Restart the server
 4. (Optional) Edit `config.json` to enable word filter, cooldown, or announcements
@@ -194,11 +248,44 @@ Werchat creates these channels on first run:
 
 ## Changelog
 
-### v1.1.7
+### v1.1.8
 **New Features:**
+- **Separate Tag & Text Colors** - Set independent colors for channel tag and message text
+  - `/ch color <channel> <#tag> [#text]` — one color sets both, two colors set them independently
+  - Example: `/ch color Global #55FF55 #FFFFFF` gives a green tag but white message text
+  - Shown in `/ch info` when a separate text color is set
+  - Backward compatible: existing channels continue using tag color for both
+- **Per-Channel Quick Chat** - Quick chat symbol triggers are now controlled per channel
+  - Each channel has `quickChatEnabled` (true/false) in channels.json
+  - Moved from global config.json toggle to per-channel control
+  - Existing channels with symbols auto-enable on first load
+- **Multi-World Channels** - Restrict channels to one or more worlds
+  - Set `"worlds": ["world1", "world2"]` in channels.json
+  - Players can only send/receive messages when in an allowed world
+  - `/ch world <channel> add <world>` — add a world to the restriction list
+  - `/ch world <channel> remove <world>` — remove a world from the list
+  - `/ch world <channel> none` — clear all world restrictions
+  - Requires `werchat.world` permission
+  - World restriction shown in `/ch info` and `/ch list`
+  - Backward compatible: old `"world": "name"` format auto-migrates to array
+- **Admin Targeting for Nicknames & Message Colors** - Admins can set other players' nicknames and message colors
+  - `/ch playernick <player> <name> [#color] [#gradient]` — requires `werchat.playernick.others`
+  - `/ch msgcolor <player> <#color> [#gradient]` — requires `werchat.msgcolor.others`
+  - Use `/ch playernick <player> reset` or `/ch msgcolor <player> reset` to clear
 - **Ignore Chat Cancellations** - Optional `ignoreChatCancellations` setting in config.json
   - When enabled, Werchat processes chat even if another plugin cancelled the event
   - Useful when running alongside plugins that have their own chat formatters
+
+**Improvements:**
+- **Split Config Files** - Channel settings and member data are now stored separately
+  - `channels.json` — clean, editable channel settings only
+  - `channel-members.json` — member lists, moderators, bans, and mutes
+  - Player usernames shown alongside UUIDs in member data for easy identification
+  - Automatic migration from old format on first load
+- **Organized Channel Settings** - Related fields grouped together in channels.json
+  - All fields always present (no hidden optional fields)
+  - `messageColor` next to `color`, `world` next to `distance`, etc.
+- Removed `quickChat` section from config.json (now per-channel)
 
 ### v1.1.6
 **New Features:**
@@ -212,8 +299,7 @@ Werchat creates these channels on first run:
 - **Optional Channel Tags** - Hide `[Channel]` prefix by setting nick to empty in channels.json
 - **Quick Chat Symbol Triggers** - Send messages to specific channels without switching focus
   - Prefix a message with `!` to send to Global, `~` for Trade, etc.
-  - Symbols configured per-channel via `quickChatSymbol` in channels.json
-  - Disabled by default, enable `quickChat.enabled` in config.json
+  - Symbols configured per-channel via `quickChatSymbol` and `quickChatEnabled` in channels.json
   - Requires `werchat.quickchat` permission
 - **Granular Permissions** - Separate permission nodes for all player commands
   - `werchat.list`, `werchat.join`, `werchat.leave`, `werchat.switch`, `werchat.who`, `werchat.info`
@@ -303,7 +389,7 @@ For issues or feature requests, leave a comment on CurseForge.
 
 ---
 
-**Version:** 1.1.7
+**Version:** 1.1.8
 **Game Version:** Hytale Early Access
 **Author:** Werw
 **License:** MIT

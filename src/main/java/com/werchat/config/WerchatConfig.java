@@ -44,9 +44,6 @@ public class WerchatConfig {
     // Chat Cancellation
     private boolean ignoreChatCancellations = false;
 
-    // Quick Chat (symbol triggers to route messages to channels, configured per-channel in channels.json)
-    private boolean quickChatEnabled = false;
-
     public WerchatConfig(WerchatPlugin plugin) {
         this.plugin = plugin;
         this.configFile = plugin.getDataDirectory().resolve("config.json");
@@ -112,12 +109,6 @@ public class WerchatConfig {
                 // Chat Cancellation
                 if (root.has("ignoreChatCancellations")) ignoreChatCancellations = root.get("ignoreChatCancellations").getAsBoolean();
 
-                // Quick Chat
-                if (root.has("quickChat")) {
-                    JsonObject qc = root.getAsJsonObject("quickChat");
-                    if (qc.has("enabled")) quickChatEnabled = qc.get("enabled").getAsBoolean();
-                }
-
                 plugin.getLogger().at(Level.INFO).log("Configuration loaded from config.json");
                 save(); // Re-save to add any new config fields from updates
             } else {
@@ -174,11 +165,6 @@ public class WerchatConfig {
             // Chat Cancellation
             root.addProperty("ignoreChatCancellations", ignoreChatCancellations);
 
-            // Quick Chat
-            JsonObject qc = new JsonObject();
-            qc.addProperty("enabled", quickChatEnabled);
-            root.add("quickChat", qc);
-
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             Files.writeString(configFile, gson.toJson(root));
 
@@ -220,6 +206,4 @@ public class WerchatConfig {
     // Chat Cancellation
     public boolean isIgnoreChatCancellations() { return ignoreChatCancellations; }
 
-    // Quick Chat
-    public boolean isQuickChatEnabled() { return quickChatEnabled; }
 }

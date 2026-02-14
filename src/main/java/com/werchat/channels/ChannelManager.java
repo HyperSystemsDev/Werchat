@@ -2,6 +2,7 @@ package com.werchat.channels;
 
 import com.google.gson.*;
 import com.werchat.WerchatPlugin;
+import com.werchat.storage.PlayerDataManager;
 
 import java.awt.Color;
 import java.io.*;
@@ -28,6 +29,7 @@ public class ChannelManager {
     public void loadChannels() {
         Path dataDir = plugin.getDataDirectory();
         Path channelsFile = dataDir.resolve("channels.json");
+        Path membersFile = dataDir.resolve("channel-members.json");
 
         try {
             Files.createDirectories(dataDir);
@@ -35,13 +37,30 @@ public class ChannelManager {
             if (Files.exists(channelsFile)) {
                 String json = Files.readString(channelsFile);
                 JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
+                boolean hasEmbeddedMembers = false;
+
                 for (JsonElement el : arr) {
-                    Channel ch = deserializeChannel(el.getAsJsonObject());
+                    JsonObject obj = el.getAsJsonObject();
+                    Channel ch = deserializeChannel(obj);
                     if (ch != null) {
+                        // Backward compat: migrate embedded member data from old format
+                        if (obj.has("members") || obj.has("moderators") || obj.has("banned") || obj.has("muted")) {
+                            hasEmbeddedMembers = true;
+                            loadEmbeddedMembers(ch, obj);
+                        }
                         registerChannel(ch);
                         if (ch.isDefault()) defaultChannel = ch;
                     }
                 }
+
+                // Load members from separate file (if it exists)
+                if (Files.exists(membersFile)) {
+                    loadMembers(dataDir);
+                } else if (hasEmbeddedMembers) {
+                    // First run after migration: save to split the files
+                    plugin.getLogger().at(Level.INFO).log("Migrating member data to channel-members.json");
+                }
+
                 plugin.getLogger().at(Level.INFO).log("Loaded %d channels from file", channels.size());
             }
         } catch (Exception e) {
@@ -51,13 +70,41 @@ public class ChannelManager {
         // Create defaults if none loaded
         if (channels.isEmpty()) {
             createDefaultChannels();
-            saveChannels();
         }
+
+        // Always save to ensure both files exist and old format gets migrated
+        saveChannels();
 
         // Ensure we have a default
         if (defaultChannel == null && !channels.isEmpty()) {
             defaultChannel = channels.values().iterator().next();
             defaultChannel.setDefault(true);
+        }
+    }
+
+    private void loadEmbeddedMembers(Channel ch, JsonObject obj) {
+        if (obj.has("owner") && !obj.get("owner").isJsonNull()) {
+            ch.setOwner(UUID.fromString(obj.get("owner").getAsString()));
+        }
+        if (obj.has("moderators")) {
+            for (JsonElement el : obj.getAsJsonArray("moderators")) {
+                ch.addModerator(UUID.fromString(el.getAsString()));
+            }
+        }
+        if (obj.has("members")) {
+            for (JsonElement el : obj.getAsJsonArray("members")) {
+                ch.addMember(UUID.fromString(el.getAsString()));
+            }
+        }
+        if (obj.has("banned")) {
+            for (JsonElement el : obj.getAsJsonArray("banned")) {
+                ch.ban(UUID.fromString(el.getAsString()));
+            }
+        }
+        if (obj.has("muted")) {
+            for (JsonElement el : obj.getAsJsonArray("muted")) {
+                ch.mute(UUID.fromString(el.getAsString()));
+            }
         }
     }
 
@@ -101,54 +148,134 @@ public class ChannelManager {
         try {
             Path dataDir = plugin.getDataDirectory();
             Files.createDirectories(dataDir);
-            Path channelsFile = dataDir.resolve("channels.json");
 
+            // Save channel settings
+            Path channelsFile = dataDir.resolve("channels.json");
             JsonArray arr = new JsonArray();
             for (Channel ch : channels.values()) {
                 arr.add(serializeChannel(ch));
             }
-
             Files.writeString(channelsFile, gson.toJson(arr));
+
+            // Save member data separately
+            saveMembers(dataDir);
+
             plugin.getLogger().at(Level.INFO).log("Saved %d channels", channels.size());
         } catch (Exception e) {
             plugin.getLogger().at(Level.WARNING).log("Failed to save channels: %s", e.getMessage());
         }
     }
 
+    private void saveMembers(Path dataDir) throws IOException {
+        Path membersFile = dataDir.resolve("channel-members.json");
+        JsonObject root = new JsonObject();
+
+        for (Channel ch : channels.values()) {
+            JsonObject chData = new JsonObject();
+            chData.add("owner", serializeUuidWithName(ch.getOwner()));
+            chData.add("moderators", serializeUuidSetWithNames(ch.getModerators()));
+            chData.add("members", serializeUuidSetWithNames(ch.getMembers()));
+            chData.add("banned", serializeUuidSetWithNames(ch.getBanned()));
+            chData.add("muted", serializeUuidSetWithNames(ch.getMuted()));
+            root.add(ch.getName(), chData);
+        }
+
+        Files.writeString(membersFile, gson.toJson(root));
+    }
+
+    private JsonObject serializeUuidSetWithNames(Set<UUID> uuids) {
+        JsonObject obj = new JsonObject();
+        PlayerDataManager pdm = plugin.getPlayerDataManager();
+        for (UUID id : uuids) {
+            String name = pdm != null ? pdm.getKnownName(id) : "";
+            obj.addProperty(id.toString(), name);
+        }
+        return obj;
+    }
+
+    private JsonElement serializeUuidWithName(UUID uuid) {
+        if (uuid == null) return JsonNull.INSTANCE;
+        JsonObject obj = new JsonObject();
+        PlayerDataManager pdm = plugin.getPlayerDataManager();
+        String name = pdm != null ? pdm.getKnownName(uuid) : "";
+        obj.addProperty(uuid.toString(), name);
+        return obj;
+    }
+
+    private void loadMembers(Path dataDir) {
+        Path membersFile = dataDir.resolve("channel-members.json");
+        if (!Files.exists(membersFile)) return;
+
+        try {
+            String json = Files.readString(membersFile);
+            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+
+            for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
+                Channel ch = getChannel(entry.getKey());
+                if (ch == null) continue;
+
+                JsonObject chData = entry.getValue().getAsJsonObject();
+
+                if (chData.has("owner") && !chData.get("owner").isJsonNull()) {
+                    JsonObject ownerObj = chData.getAsJsonObject("owner");
+                    for (String key : ownerObj.keySet()) {
+                        ch.setOwner(UUID.fromString(key));
+                    }
+                }
+
+                if (chData.has("moderators")) {
+                    for (String key : chData.getAsJsonObject("moderators").keySet()) {
+                        ch.addModerator(UUID.fromString(key));
+                    }
+                }
+
+                if (chData.has("members")) {
+                    for (String key : chData.getAsJsonObject("members").keySet()) {
+                        ch.addMember(UUID.fromString(key));
+                    }
+                }
+
+                if (chData.has("banned")) {
+                    for (String key : chData.getAsJsonObject("banned").keySet()) {
+                        ch.ban(UUID.fromString(key));
+                    }
+                }
+
+                if (chData.has("muted")) {
+                    for (String key : chData.getAsJsonObject("muted").keySet()) {
+                        ch.mute(UUID.fromString(key));
+                    }
+                }
+            }
+
+            plugin.getLogger().at(Level.INFO).log("Loaded channel members from channel-members.json");
+        } catch (Exception e) {
+            plugin.getLogger().at(Level.WARNING).log("Failed to load channel members: %s", e.getMessage());
+        }
+    }
+
     private JsonObject serializeChannel(Channel ch) {
         JsonObject obj = new JsonObject();
+
+        // Identity
         obj.addProperty("name", ch.getName());
         obj.addProperty("nick", ch.getNick());
+
+        // Appearance
         obj.addProperty("color", ch.getColorHex());
+        obj.addProperty("messageColor", ch.hasMessageColor() ? ch.getMessageColorHex() : "");
         obj.addProperty("format", ch.getFormat());
+
+        // Behavior
         obj.addProperty("distance", ch.getDistance());
+        JsonArray worldsArr = new JsonArray();
+        for (String w : ch.getWorlds()) worldsArr.add(w);
+        obj.add("worlds", worldsArr);
         obj.addProperty("password", ch.getPassword());
+        obj.addProperty("quickChatSymbol", ch.hasQuickChatSymbol() ? ch.getQuickChatSymbol() : "");
+        obj.addProperty("quickChatEnabled", ch.isQuickChatEnabled());
         obj.addProperty("isDefault", ch.isDefault());
         obj.addProperty("autoJoin", ch.isAutoJoin());
-
-        JsonArray mods = new JsonArray();
-        for (UUID id : ch.getModerators()) mods.add(id.toString());
-        obj.add("moderators", mods);
-
-        JsonArray members = new JsonArray();
-        for (UUID id : ch.getMembers()) members.add(id.toString());
-        obj.add("members", members);
-
-        JsonArray banned = new JsonArray();
-        for (UUID id : ch.getBanned()) banned.add(id.toString());
-        obj.add("banned", banned);
-
-        JsonArray muted = new JsonArray();
-        for (UUID id : ch.getMuted()) muted.add(id.toString());
-        obj.add("muted", muted);
-
-        if (ch.getOwner() != null) {
-            obj.addProperty("owner", ch.getOwner().toString());
-        }
-
-        if (ch.hasQuickChatSymbol()) {
-            obj.addProperty("quickChatSymbol", ch.getQuickChatSymbol());
-        }
 
         return obj;
     }
@@ -173,36 +300,41 @@ public class ChannelManager {
             ch.setDefault(obj.get("isDefault").getAsBoolean());
             ch.setAutoJoin(obj.get("autoJoin").getAsBoolean());
 
-            if (obj.has("moderators")) {
-                for (JsonElement el : obj.getAsJsonArray("moderators")) {
-                    ch.addModerator(UUID.fromString(el.getAsString()));
+            if (obj.has("messageColor") && !obj.get("messageColor").isJsonNull()) {
+                String msgColorStr = obj.get("messageColor").getAsString();
+                if (!msgColorStr.isEmpty()) {
+                    String msgHex = msgColorStr.replace("#", "");
+                    int mr = Integer.parseInt(msgHex.substring(0, 2), 16);
+                    int mg = Integer.parseInt(msgHex.substring(2, 4), 16);
+                    int mb = Integer.parseInt(msgHex.substring(4, 6), 16);
+                    ch.setMessageColor(new Color(mr, mg, mb));
                 }
-            }
-
-            if (obj.has("members")) {
-                for (JsonElement el : obj.getAsJsonArray("members")) {
-                    ch.addMember(UUID.fromString(el.getAsString()));
-                }
-            }
-
-            if (obj.has("banned")) {
-                for (JsonElement el : obj.getAsJsonArray("banned")) {
-                    ch.ban(UUID.fromString(el.getAsString()));
-                }
-            }
-
-            if (obj.has("muted")) {
-                for (JsonElement el : obj.getAsJsonArray("muted")) {
-                    ch.mute(UUID.fromString(el.getAsString()));
-                }
-            }
-
-            if (obj.has("owner") && !obj.get("owner").isJsonNull()) {
-                ch.setOwner(UUID.fromString(obj.get("owner").getAsString()));
             }
 
             if (obj.has("quickChatSymbol") && !obj.get("quickChatSymbol").isJsonNull()) {
-                ch.setQuickChatSymbol(obj.get("quickChatSymbol").getAsString());
+                String qcs = obj.get("quickChatSymbol").getAsString();
+                if (!qcs.isEmpty()) {
+                    ch.setQuickChatSymbol(qcs);
+                }
+            }
+
+            if (obj.has("quickChatEnabled")) {
+                ch.setQuickChatEnabled(obj.get("quickChatEnabled").getAsBoolean());
+            } else {
+                // Backward compat: enable if channel already has a symbol
+                ch.setQuickChatEnabled(ch.hasQuickChatSymbol());
+            }
+
+            if (obj.has("worlds") && obj.get("worlds").isJsonArray()) {
+                for (JsonElement el : obj.getAsJsonArray("worlds")) {
+                    ch.addWorld(el.getAsString());
+                }
+            } else if (obj.has("world") && !obj.get("world").isJsonNull()) {
+                // Backward compat: migrate single world string to set
+                String worldStr = obj.get("world").getAsString();
+                if (!worldStr.isEmpty()) {
+                    ch.addWorld(worldStr);
+                }
             }
 
             return ch;

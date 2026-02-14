@@ -13,6 +13,7 @@ public class Channel {
     private String name;
     private String nick;
     private Color color;
+    private Color messageColor; // null = use tag color for message text
     private String format;
     private int distance;
     private String password;
@@ -32,6 +33,8 @@ public class Channel {
 
     private UUID owner;
     private String quickChatSymbol; // e.g. "!" to allow "!hello" to route to this channel
+    private boolean quickChatEnabled; // whether quick chat symbol is active for this channel
+    private final Set<String> worlds; // world name restrictions (empty = all worlds)
 
     public Channel(String name) {
         this.name = name;
@@ -48,6 +51,8 @@ public class Channel {
         this.banned = new HashSet<>();
         this.muted = new HashSet<>();
         this.moderators = new HashSet<>();
+
+        this.worlds = new HashSet<>();
 
         this.joinPermission = "werchat.channel." + name.toLowerCase() + ".join";
         this.speakPermission = "werchat.channel." + name.toLowerCase() + ".speak";
@@ -100,6 +105,11 @@ public class Channel {
     public Color getColor() { return color; }
     public void setColor(Color color) { this.color = color; }
     public String getColorHex() { return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue()); }
+    public Color getMessageColor() { return messageColor; }
+    public void setMessageColor(Color messageColor) { this.messageColor = messageColor; }
+    public boolean hasMessageColor() { return messageColor != null; }
+    public String getMessageColorHex() { return messageColor != null ? String.format("#%02x%02x%02x", messageColor.getRed(), messageColor.getGreen(), messageColor.getBlue()) : null; }
+    public String getEffectiveMessageColorHex() { return messageColor != null ? getMessageColorHex() : getColorHex(); }
     public boolean isAutoJoin() { return autoJoin; }
     public void setAutoJoin(boolean autoJoin) { this.autoJoin = autoJoin; }
     public String getFormat() { return format; }
@@ -129,4 +139,16 @@ public class Channel {
     public String getQuickChatSymbol() { return quickChatSymbol; }
     public void setQuickChatSymbol(String quickChatSymbol) { this.quickChatSymbol = quickChatSymbol; }
     public boolean hasQuickChatSymbol() { return quickChatSymbol != null && !quickChatSymbol.isEmpty(); }
+    public boolean isQuickChatEnabled() { return quickChatEnabled; }
+    public void setQuickChatEnabled(boolean quickChatEnabled) { this.quickChatEnabled = quickChatEnabled; }
+    public Set<String> getWorlds() { return new HashSet<>(worlds); }
+    public void addWorld(String world) { if (world != null && !world.isEmpty()) worlds.add(world); }
+    public void removeWorld(String world) { worlds.remove(world); }
+    public void clearWorlds() { worlds.clear(); }
+    public boolean hasWorlds() { return !worlds.isEmpty(); }
+    public boolean isWorldRestricted() { return hasWorlds(); }
+    public boolean isInAllowedWorld(String worldName) { return worlds.isEmpty() || worlds.contains(worldName); }
+    // Backward compat helper for single-world migration
+    public void setWorld(String world) { worlds.clear(); if (world != null && !world.isEmpty()) worlds.add(world); }
+    public String getWorldsDisplay() { return worlds.isEmpty() ? "All worlds" : String.join(", ", worlds); }
 }

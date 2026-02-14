@@ -19,15 +19,18 @@ public class PlayerDataManager {
     private final WerchatPlugin plugin;
     private final Map<UUID, PlayerChatData> playerData;
     private final Map<UUID, PlayerRef> onlinePlayers;
+    private final Map<UUID, String> knownNames; // persists after disconnect
 
     public PlayerDataManager(WerchatPlugin plugin) {
         this.plugin = plugin;
         this.playerData = new HashMap<>();
         this.onlinePlayers = new HashMap<>();
+        this.knownNames = new HashMap<>();
     }
 
     public void trackPlayer(UUID playerId, PlayerRef player) {
         onlinePlayers.put(playerId, player);
+        knownNames.put(playerId, player.getUsername());
     }
 
     public void untrackPlayer(UUID playerId) {
@@ -36,6 +39,12 @@ public class PlayerDataManager {
 
     public PlayerRef getOnlinePlayer(UUID playerId) {
         return onlinePlayers.get(playerId);
+    }
+
+    public String getKnownName(UUID playerId) {
+        PlayerRef online = onlinePlayers.get(playerId);
+        if (online != null) return online.getUsername();
+        return knownNames.getOrDefault(playerId, "");
     }
 
     public Collection<PlayerRef> getOnlinePlayers() {

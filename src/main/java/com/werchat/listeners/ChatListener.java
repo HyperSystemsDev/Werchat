@@ -4,6 +4,8 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerChatEvent.Formatter;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.permissions.PermissionsModule;
 import com.werchat.WerchatPlugin;
 import com.werchat.channels.Channel;
@@ -60,6 +62,42 @@ public class ChatListener {
     private boolean isAdmin(UUID playerId) {
         PermissionsModule perms = PermissionsModule.get();
         return perms.hasPermission(playerId, "*") || perms.hasPermission(playerId, "werchat.*");
+    }
+
+    /**
+     * Resolve a world name to its UUID via Universe lookup.
+     * Returns null if the world is not found.
+     */
+    private UUID resolveWorldUuid(String worldName) {
+        if (worldName == null || worldName.isEmpty()) return null;
+        try {
+            World world = Universe.get().getWorld(worldName);
+            if (world != null) {
+                return world.getWorldConfig().getUuid();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().at(Level.WARNING).log("Failed to resolve world '%s': %s", worldName, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Check if a player is in one of the worlds a channel is restricted to.
+     */
+    private boolean isPlayerInChannelWorld(PlayerRef player, Channel channel) {
+        if (!channel.isWorldRestricted()) return true;
+        try {
+            UUID playerWorldId = player.getWorldUuid();
+            for (String worldName : channel.getWorlds()) {
+                UUID channelWorldId = resolveWorldUuid(worldName);
+                if (channelWorldId != null && channelWorldId.equals(playerWorldId)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -207,9 +245,9 @@ public class ChatListener {
 
         // Check for quick chat symbol triggers (e.g. "!hello" routes to Global)
         Channel channel = null;
-        if (config.isQuickChatEnabled()) {
+        {
             Channel quickChatChannel = channelManager.findChannelByQuickChatSymbol(message);
-            if (quickChatChannel != null) {
+            if (quickChatChannel != null && quickChatChannel.isQuickChatEnabled()) {
                 // Check permission for quick chat
                 PermissionsModule qcPerms = PermissionsModule.get();
                 boolean hasQuickChat = qcPerms.hasPermission(senderId, "werchat.quickchat")
@@ -233,6 +271,17 @@ public class ChatListener {
             channel = channelManager.getChannel(channelName);
             if (channel == null) {
                 channel = channelManager.getDefaultChannel();
+            }
+        }
+
+        // Check world restriction - fall back to default if player isn't in the channel's world
+        if (channel.isWorldRestricted() && !isPlayerInChannelWorld(sender, channel)) {
+            Channel fallback = channelManager.getDefaultChannel();
+            if (fallback != null && fallback != channel) {
+                channel = fallback;
+            } else {
+                sender.sendMessage(Message.raw("You are not in the correct world for " + channel.getName()).color("#FF0000"));
+                return;
             }
         }
 
@@ -364,6 +413,15 @@ public class ChatListener {
             }
         }
 
+        // Resolve world restriction UUIDs for filtering
+        Set<UUID> allowedWorldIds = new HashSet<>();
+        if (channel.isWorldRestricted()) {
+            for (String worldName : channel.getWorlds()) {
+                UUID wid = resolveWorldUuid(worldName);
+                if (wid != null) allowedWorldIds.add(wid);
+            }
+        }
+
         // Send to all channel members who aren't ignoring the sender
         for (UUID memberId : channel.getMembers()) {
             if (playerDataManager.isIgnoring(memberId, senderId)) {
@@ -371,6 +429,18 @@ public class ChatListener {
             }
             PlayerRef member = playerDataManager.getOnlinePlayer(memberId);
             if (member != null) {
+                // Check world restriction
+                if (!allowedWorldIds.isEmpty()) {
+                    try {
+                        UUID memberWorldId = member.getWorldUuid();
+                        if (!allowedWorldIds.contains(memberWorldId)) {
+                            continue; // Not in any of the channel's worlds
+                        }
+                    } catch (Exception e) {
+                        continue;
+                    }
+                }
+
                 // Check distance and world for local channels
                 if (isLocal && !memberId.equals(senderId)) {
                     try {
@@ -469,8 +539,8 @@ public class ChatListener {
                 // Player has solid message color
                 parts.add(Message.raw(message).color(msgColor));
             } else {
-                // Use channel color
-                parts.add(Message.raw(message).color(channel.getColorHex()));
+                // Use channel message color (falls back to tag color if not set)
+                parts.add(Message.raw(message).color(channel.getEffectiveMessageColorHex()));
             }
         }
 
