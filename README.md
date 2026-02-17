@@ -228,10 +228,10 @@ Default format: `{nick} {sender}: {msg}`
 # Output: build/libs/Werchat-1.1.8.jar
 ```
 
-`manifest.json` now needs an explicit `ServerVersion` semver range (not `*`), for example:
+`manifest.json` now needs an explicit `ServerVersion` that exactly matches the running server build (not `*` and no range operators), for example:
 
 ```json
-"ServerVersion": "=2026.02.17-255364b8e"
+"ServerVersion": "2026.02.17-255364b8e"
 ```
 
 </details>

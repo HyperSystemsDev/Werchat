@@ -30,10 +30,16 @@ tasks.register("validateManifestServerVersion") {
         val serverVersionMatch = Regex("\"ServerVersion\"\\s*:\\s*\"([^\"]+)\"").find(manifestText)
             ?: throw GradleException("manifest.json is missing ServerVersion")
         val serverVersion = serverVersionMatch.groupValues[1].trim()
-        if (serverVersion.isEmpty() || serverVersion == "*") {
+        val looksLikeRange = serverVersion.startsWith("=") ||
+            serverVersion.startsWith("<") ||
+            serverVersion.startsWith(">") ||
+            serverVersion.startsWith("^") ||
+            serverVersion.startsWith("~")
+
+        if (serverVersion.isEmpty() || serverVersion == "*" || looksLikeRange) {
             throw GradleException(
-                "manifest.json ServerVersion must be an explicit semver range " +
-                    "(for example: \"=2026.02.17-255364b8e\")."
+                "manifest.json ServerVersion must be the exact Hytale server version string " +
+                    "(for example: \"2026.02.17-255364b8e\") and cannot use range operators."
             )
         }
     }
