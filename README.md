@@ -280,9 +280,8 @@ Direct channel selector alias:
 | `quickchatsymbol` | Quick-chat trigger symbol (for example `!`), blank when unset |
 | `see_permission` | Permission node string associated with viewing/receiving this channel (`werchat.channel.<name>.see`) |
 | `speak_permission` | Permission node string associated with speaking in this channel (`werchat.channel.<name>.speak`) |
-| `worlds_display` | Worlds shown as text (`All worlds` or a comma-separated list) |
 | `worlds_count` | Number of configured world restrictions |
-| `worlds` | Comma-separated configured world names |
+| `worlds` | Worlds shown as text (`All worlds` or a comma-separated list) |
 | `distance` | Channel chat range in blocks (`0` means global/unlimited) |
 | `member_count` | Current number of channel members |
 | `moderator_count` | Current number of channel moderators |
