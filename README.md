@@ -344,7 +344,7 @@ if (api != null) {
 ```
 
 API notes:
-- `submitPlayerChat(...)` is the primary method (legacy `relayChat(...)` still exists as a deprecated alias).
+- `submitPlayerChat(...)` is the primary API method for submitting player chat.
 - `WerchatActionResult` and `WerchatMembershipResult` expose explicit status enums instead of booleans.
 - Channel lookups can now be explicit: use `getChannelExact(...)`, `joinChannelExact(...)`, `setFocusedChannelExact(...)`, etc. for deterministic integrations, or default/fuzzy methods for command-like behavior.
 - `api.getApiVersion()`, `api.getCapabilities()`, and `api.hasCapability(...)` let integrations gate behavior safely.

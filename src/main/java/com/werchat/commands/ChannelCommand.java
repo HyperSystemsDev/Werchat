@@ -108,13 +108,6 @@ public class ChannelCommand extends CommandBase {
         String arg3 = parts.length > 4 ? parts[4] : null;
         String arg4 = parts.length > 5 ? parts[5] : null;
 
-        // Get everything after the subcommand (for broadcast message)
-        String rawArgs = "";
-        if (parts.length > 2) {
-            int cmdEnd = input.toLowerCase().indexOf(cmd) + cmd.length();
-            rawArgs = input.substring(cmdEnd).trim();
-        }
-
         // No args = show help
         if (cmd.isEmpty()) {
             showHelp(ctx);
@@ -574,7 +567,6 @@ public class ChannelCommand extends CommandBase {
         ctx.sendMessage(Message.raw(channel.getName() + " - " + channel.getMemberCount() + " members").color(channel.getColorHex()));
 
         StringBuilder online = new StringBuilder();
-        StringBuilder offline = new StringBuilder();
         int onlineCount = 0;
 
         for (UUID memberId : channel.getMembers()) {

@@ -133,20 +133,4 @@ public interface WerchatAPI {
     WerchatActionResult submitPlayerChat(UUID senderId, String message);
 
     WerchatActionResult submitPlayerChat(UUID senderId, String message, WerchatOperationOptions options);
-
-    /**
-     * @deprecated Use {@link #getMembership(UUID, String)}.
-     */
-    @Deprecated(forRemoval = false)
-    default boolean isMember(UUID playerId, String channelInput) {
-        return getMembership(playerId, channelInput).isMember();
-    }
-
-    /**
-     * @deprecated Use {@link #submitPlayerChat(UUID, String)}.
-     */
-    @Deprecated(forRemoval = false)
-    default boolean relayChat(UUID senderId, String message) {
-        return submitPlayerChat(senderId, message).isSuccess();
-    }
 }

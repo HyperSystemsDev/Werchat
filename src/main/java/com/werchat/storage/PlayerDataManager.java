@@ -79,8 +79,6 @@ public class PlayerDataManager {
         });
     }
 
-    public void removePlayerData(UUID playerId) { playerData.remove(playerId); }
-
     public String getFocusedChannel(UUID playerId) { return getPlayerData(playerId).getFocusedChannel(); }
     public void setFocusedChannel(UUID playerId, String channelName) { getPlayerData(playerId).setFocusedChannel(channelName); }
 
@@ -115,8 +113,6 @@ public class PlayerDataManager {
         getPlayerData(playerId).setNickGradientEnd(color);
         markNicknamesDirty();
     }
-    public boolean hasGradient(UUID playerId) { return getPlayerData(playerId).hasGradient(); }
-    public boolean hasNickname(UUID playerId) { return getPlayerData(playerId).hasNickname(); }
 
     // Message color methods
     public String getMsgColor(UUID playerId) { return getPlayerData(playerId).getMsgColor(); }
@@ -129,8 +125,6 @@ public class PlayerDataManager {
         getPlayerData(playerId).setMsgGradientEnd(color);
         markNicknamesDirty();
     }
-    public boolean hasMsgColor(UUID playerId) { return getPlayerData(playerId).hasMsgColor(); }
-    public boolean hasMsgGradient(UUID playerId) { return getPlayerData(playerId).hasMsgGradient(); }
     public void clearMsgColor(UUID playerId) {
         PlayerChatData data = getPlayerData(playerId);
         data.setMsgColor(null);
@@ -313,13 +307,11 @@ public class PlayerDataManager {
         public void setNickColor(String nickColor) { this.nickColor = nickColor; }
         public String getNickGradientEnd() { return nickGradientEnd; }
         public void setNickGradientEnd(String nickGradientEnd) { this.nickGradientEnd = nickGradientEnd; }
-        public boolean hasGradient() { return nickColor != null && nickGradientEnd != null; }
         public boolean hasNickname() { return nickname != null && !nickname.isEmpty(); }
         public String getMsgColor() { return msgColor; }
         public void setMsgColor(String msgColor) { this.msgColor = msgColor; }
         public String getMsgGradientEnd() { return msgGradientEnd; }
         public void setMsgGradientEnd(String msgGradientEnd) { this.msgGradientEnd = msgGradientEnd; }
         public boolean hasMsgColor() { return msgColor != null && !msgColor.isEmpty(); }
-        public boolean hasMsgGradient() { return msgColor != null && msgGradientEnd != null; }
     }
 }

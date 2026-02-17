@@ -658,8 +658,6 @@ public class ChatListener {
         String currentColor = "#FFFFFF";
         boolean bold = false;
         boolean italic = false;
-        boolean underline = false;
-        boolean strikethrough = false;
 
         int i = 0;
         while (i < text.length()) {
@@ -715,14 +713,10 @@ public class ChatListener {
                 switch (Character.toLowerCase(next)) {
                     case 'l': bold = true; i += 2; continue;
                     case 'o': italic = true; i += 2; continue;
-                    case 'n': underline = true; i += 2; continue;
-                    case 'm': strikethrough = true; i += 2; continue;
                     case 'r': // Reset
                         currentColor = "#FFFFFF";
                         bold = false;
                         italic = false;
-                        underline = false;
-                        strikethrough = false;
                         i += 2;
                         continue;
                 }
