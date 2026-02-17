@@ -190,7 +190,8 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
             return new ChannelPlaceholderRequest(selector, key);
         }
 
-        return null;
+        // Alias: %werchat_channel_<selector>% => channel name
+        return new ChannelPlaceholderRequest(remaining, "name");
     }
 
     private Channel resolveChannel(ChannelManager channelManager,
