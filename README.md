@@ -284,8 +284,11 @@ Direct channel selector alias:
 | `worlds` | Worlds shown as text (`All worlds` or a comma-separated list) |
 | `distance` | Channel chat range in blocks (`0` means global/unlimited) |
 | `member_count` | Current number of channel members |
+| `member_names` | Comma-separated member names (online username, fallback known name, then short UUID) |
 | `moderator_count` | Current number of channel moderators |
+| `moderator_names` | Comma-separated moderator names (online username, fallback known name, then short UUID) |
 | `muted_count` | Current number of muted members |
+| `muted_names` | Comma-separated muted member names (online username, fallback known name, then short UUID) |
 | `owner` | Channel owner UUID |
 | `owner_name` | Best-known owner name (online username fallback to stored known name) |
 | `is_autojoin` | `true` if this channel auto-joins players on connect |

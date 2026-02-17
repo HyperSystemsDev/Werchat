@@ -12,6 +12,7 @@ import com.werchat.storage.PlayerDataManager;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -29,8 +30,11 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
         "see_permission",
         "speak_permission",
         "quickchatsymbol",
+        "moderator_names",
         "moderator_count",
+        "member_names",
         "muted_count",
+        "muted_names",
         "member_count",
         "worlds_count",
         "msg_color_hex",
@@ -232,6 +236,9 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
             case "member_count" -> String.valueOf(channel.getMemberCount());
             case "moderator_count" -> String.valueOf(channel.getModerators().size());
             case "muted_count" -> String.valueOf(channel.getMuted().size());
+            case "member_names" -> joinPlayerNames(channel.getMembers(), playerDataManager);
+            case "moderator_names" -> joinPlayerNames(channel.getModerators(), playerDataManager);
+            case "muted_names" -> joinPlayerNames(channel.getMuted(), playerDataManager);
             case "owner" -> channel.getOwner() != null ? channel.getOwner().toString() : "";
             case "owner_name" -> {
                 UUID owner = channel.getOwner();
@@ -268,6 +275,25 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
             return "active";
         }
         return config.activeChannel();
+    }
+
+    private String joinPlayerNames(Set<UUID> playerIds, PlayerDataManager playerDataManager) {
+        return playerIds.stream()
+            .map(playerId -> {
+                PlayerRef online = Universe.get().getPlayer(playerId);
+                if (online != null) {
+                    return online.getUsername();
+                }
+
+                String knownName = playerDataManager.getKnownName(playerId);
+                if (knownName != null && !knownName.isBlank()) {
+                    return knownName;
+                }
+
+                return playerId.toString().substring(0, 8);
+            })
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.joining(", "));
     }
 
     private String nullToEmpty(String value) {
