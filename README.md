@@ -222,6 +222,76 @@ Default format: `{nick} {sender}: {msg}`
 
 Format literals also support PlaceholderAPI placeholders when PlaceholderAPI is installed.
 
+Werchat also registers a built-in PlaceholderAPI expansion with identifier `werchat`.
+
+Top-level Werchat placeholders:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `%werchat_channels_total%` | Total number of channels |
+| `%werchat_channels%` | Comma-separated channel names |
+| `%werchat_default_channel%` | Default channel name |
+| `%werchat_channel%` | Focused channel name for the player |
+| `%werchat_ignored_players_total%` | Number of ignored players |
+| `%werchat_ignored_players%` | Comma-separated ignored player names |
+| `%werchat_known_name%` | Player's known username |
+| `%werchat_display_colour%` | Player display color |
+| `%werchat_display_color%` | Player display color (US spelling alias) |
+| `%werchat_msg_color%` | Player message color |
+| `%werchat_msg_gradient_end%` | Player message gradient end color |
+| `%werchat_nick_color%` | Player nickname color |
+| `%werchat_nick_gradient_end%` | Player nickname gradient end color |
+| `%werchat_nick%` | Player nickname |
+| `%werchat_display_name%` | Effective display name |
+
+Channel-scoped Werchat placeholder syntax:
+
+`%werchat_channel_<selector>_<key>%`
+
+`<selector>` values:
+- Exact channel name or nick.
+- The expansion active alias (default: `active`) to target the player's focused channel.
+
+`<key>` values:
+
+| Key | Description |
+|-----|-------------|
+| `name` | Channel name |
+| `nick` | Channel nick |
+| `colorhex` | Channel tag color hex |
+| `format` | Channel format string |
+| `color` | Raw channel color object string |
+| `effective_msg_colorhex` | Effective message color hex |
+| `join_permission` | Join permission node |
+| `msg_color_hex` | Explicit channel message color hex |
+| `msg_color` | Raw channel message color object string |
+| `quickchatsymbol` | Quick-chat symbol |
+| `see_permission` | See permission node |
+| `speak_permission` | Speak permission node |
+| `worlds_display` | Human-readable world list |
+| `worlds_count` | Number of world restrictions |
+| `worlds` | Comma-separated world list |
+| `distance` | Channel distance |
+| `member_count` | Member count |
+| `moderator_count` | Moderator count |
+| `muted_count` | Muted count |
+| `owner` | Owner UUID |
+| `owner_name` | Owner username/known name |
+| `is_autojoin` | Whether auto-join is enabled |
+| `is_muted` | Whether the player is muted in the channel |
+| `is_banned` | Whether the player is banned from the channel |
+| `is_member` | Whether the player is a channel member |
+| `is_moderator` | Whether the player is a channel moderator |
+| `is_verbose` | Whether verbose mode is enabled |
+| `is_default` | Whether this is the default channel |
+| `is_focusable` | Whether the channel can be focused |
+| `is_global` | Whether channel is global |
+| `is_local` | Whether channel is local |
+| `has_password` | Whether channel has a password |
+| `has_msg_color` | Whether channel has explicit message color |
+| `has_worlds` | Whether channel has world restrictions |
+| `has_quickchatsymbol` | Whether channel has quick-chat symbol |
+
 </details>
 
 <details>
