@@ -20,6 +20,9 @@ import java.util.logging.Level;
 public class ChannelManager {
 
     private static final long SAVE_DEBOUNCE_SECONDS = 20;
+    private static final String LEGACY_DEFAULT_FORMAT = "{nick} {sender}: {msg}";
+    private static final String CURRENT_DEFAULT_FORMAT = "[{nick}] {sender}: {msg}";
+    private static final Set<String> BUILTIN_CHANNEL_NAMES = Set.of("global", "local", "trade", "support");
 
     private final WerchatPlugin plugin;
     private final Map<String, Channel> channels;
@@ -107,6 +110,8 @@ public class ChannelManager {
             }
         }
 
+        migrateLegacyDefaultFormats();
+
         suppressDirtyNotifications = false;
 
         // Always save to ensure both files exist and old format gets migrated
@@ -143,7 +148,7 @@ public class ChannelManager {
         Channel global = new Channel("Global");
         global.setNick("Global");
         global.setColor(Color.WHITE);
-        global.setFormat("{nick} {sender}: {msg}");
+        global.setFormat(CURRENT_DEFAULT_FORMAT);
         global.setDistance(0);
         global.setDefault(true);
         global.setAutoJoin(true);
@@ -154,7 +159,7 @@ public class ChannelManager {
         Channel local = new Channel("Local");
         local.setNick("Local");
         local.setColor(Color.GRAY);
-        local.setFormat("{nick} {sender}: {msg}");
+        local.setFormat(CURRENT_DEFAULT_FORMAT);
         local.setDistance(100);
         local.setAutoJoin(true);
         registerChannel(local);
@@ -162,7 +167,7 @@ public class ChannelManager {
         Channel trade = new Channel("Trade");
         trade.setNick("Trade");
         trade.setColor(new Color(255, 215, 0));
-        trade.setFormat("{nick} {sender}: {msg}");
+        trade.setFormat(CURRENT_DEFAULT_FORMAT);
         trade.setAutoJoin(true);
         trade.setQuickChatSymbol("~");
         registerChannel(trade);
@@ -170,9 +175,27 @@ public class ChannelManager {
         Channel support = new Channel("Support");
         support.setNick("Support");
         support.setColor(Color.GREEN);
-        support.setFormat("{nick} {sender}: {msg}");
+        support.setFormat(CURRENT_DEFAULT_FORMAT);
         support.setAutoJoin(true);
         registerChannel(support);
+    }
+
+    private void migrateLegacyDefaultFormats() {
+        int migrated = 0;
+        for (Channel channel : channels.values()) {
+            String channelName = channel.getName() == null ? "" : channel.getName().toLowerCase(Locale.ROOT);
+            if (!BUILTIN_CHANNEL_NAMES.contains(channelName)) {
+                continue;
+            }
+            if (LEGACY_DEFAULT_FORMAT.equals(channel.getFormat())) {
+                channel.setFormat(CURRENT_DEFAULT_FORMAT);
+                migrated++;
+            }
+        }
+
+        if (migrated > 0) {
+            plugin.getLogger().at(Level.INFO).log("Migrated %d channel format(s) to bracketed default tags", migrated);
+        }
     }
 
     public void markDirty() {

@@ -100,10 +100,21 @@ public class PlayerListener {
     }
 
     private void broadcastMembershipEvent(String text, UUID playerId) {
-        for (Channel channel : channelManager.getPlayerChannels(playerId)) {
-            if (channel.isVerbose()) {
-                broadcastToChannel(channel, text);
+        String focusedName = playerDataManager.getFocusedChannel(playerId);
+        Channel focusedChannel = focusedName != null ? channelManager.getChannel(focusedName) : null;
+
+        Channel announceChannel = null;
+        if (focusedChannel != null && focusedChannel.isVerbose()) {
+            announceChannel = focusedChannel;
+        } else {
+            Channel fallback = channelManager.getDefaultChannel();
+            if (fallback != null && fallback.isVerbose()) {
+                announceChannel = fallback;
             }
+        }
+
+        if (announceChannel != null) {
+            broadcastToChannel(announceChannel, text);
         }
     }
 

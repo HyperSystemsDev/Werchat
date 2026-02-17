@@ -235,7 +235,7 @@ Custom channel message formats support these placeholders:
 | `{prefix}` | Player's permission prefix (HyperPerms/LuckPerms) |
 | `{suffix}` | Player's permission suffix (HyperPerms/LuckPerms) |
 
-Default format: `{nick} {sender}: {msg}`
+Default format: `[{nick}] {sender}: {msg}`
 
 Format literals also support PlaceholderAPI placeholders when PlaceholderAPI is installed.
 

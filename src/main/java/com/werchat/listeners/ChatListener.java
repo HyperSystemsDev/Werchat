@@ -33,6 +33,8 @@ public class ChatListener {
     // Pattern for @mentions
     private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
     private static final Pattern FORMAT_TOKEN_PATTERN = Pattern.compile("(\\{name\\}|\\{nick\\}|\\{color\\}|\\{sender\\}|\\{msg\\}|\\{prefix\\}|\\{suffix\\})");
+    private static final String LEGACY_DEFAULT_FORMAT = "{nick} {sender}: {msg}";
+    private static final String CURRENT_DEFAULT_FORMAT = "[{nick}] {sender}: {msg}";
 
     // HyperPerms soft dependency - uses reflection to avoid hard dependency
     private static boolean hyperPermsChecked = false;
@@ -560,7 +562,10 @@ public class ChatListener {
 
         String format = channel.getFormat();
         if (format == null || format.isBlank()) {
-            format = "{nick} {sender}: {msg}";
+            format = CURRENT_DEFAULT_FORMAT;
+        } else if (LEGACY_DEFAULT_FORMAT.equals(format)) {
+            // Render old default templates with the current bracketed tag style.
+            format = CURRENT_DEFAULT_FORMAT;
         }
 
         return renderFormat(format, tokenParts, sender, recipient);

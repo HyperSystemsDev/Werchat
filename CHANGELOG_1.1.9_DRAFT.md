@@ -50,6 +50,8 @@ Status: Unreleased
   - join checks in `/ch join` and `/ch <channel>` auto-join,
   - speak checks before message send,
   - read checks for message recipient delivery and channel visibility commands.
+- Reduced join/leave announcement spam by emitting membership notices once through a single announce channel path instead of repeating per joined channel.
+- Restored bracketed default channel tags (`[{nick}]`) and migrated legacy built-in channel templates that used unbracketed defaults.
 
 ## Docs
 
