@@ -231,7 +231,8 @@ Top-level Werchat placeholders:
 | `%werchat_channels_total%` | Total number of channels |
 | `%werchat_channels%` | Comma-separated channel names |
 | `%werchat_default_channel%` | Default channel name |
-| `%werchat_channel%` | Focused channel name for the player |
+| `%werchat_channel%` | Focused channel name for the player (legacy/short form) |
+| `%werchat_selected_channel%` | Focused channel name for the player (recommended) |
 | `%werchat_ignored_players_total%` | Number of ignored players |
 | `%werchat_ignored_players%` | Comma-separated ignored player names |
 | `%werchat_known_name%` | Real account username |

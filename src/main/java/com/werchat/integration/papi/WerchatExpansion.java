@@ -142,7 +142,7 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
             case "default_channel" -> channelManager.getDefaultChannel() != null
                 ? channelManager.getDefaultChannel().getName()
                 : "";
-            case "channel" -> playerId != null ? playerDataManager.getFocusedChannel(playerId) : "";
+            case "channel", "selected_channel" -> playerId != null ? playerDataManager.getFocusedChannel(playerId) : "";
             case "ignored_players_total" -> playerId != null
                 ? String.valueOf(playerDataManager.getIgnoredPlayers(playerId).size())
                 : "0";
