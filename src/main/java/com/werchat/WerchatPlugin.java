@@ -109,7 +109,8 @@ public class WerchatPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new IgnoreListCommand(this));
     }
 
-    public void onDisable() {
+    @Override
+    protected void shutdown() {
         // Stop auto-save
         if (autoSaveScheduler != null) {
             autoSaveScheduler.shutdown();

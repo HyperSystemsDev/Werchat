@@ -21,6 +21,28 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 }
 
+val pluginManifestFile = layout.projectDirectory.file("src/main/resources/manifest.json").asFile
+
+tasks.register("validateManifestServerVersion") {
+    inputs.file(pluginManifestFile)
+    doLast {
+        val manifestText = pluginManifestFile.readText()
+        val serverVersionMatch = Regex("\"ServerVersion\"\\s*:\\s*\"([^\"]+)\"").find(manifestText)
+            ?: throw GradleException("manifest.json is missing ServerVersion")
+        val serverVersion = serverVersionMatch.groupValues[1].trim()
+        if (serverVersion.isEmpty() || serverVersion == "*") {
+            throw GradleException(
+                "manifest.json ServerVersion must be an explicit semver range " +
+                    "(for example: \"=2026.02.17-255364b8e\")."
+            )
+        }
+    }
+}
+
+tasks.processResources {
+    dependsOn("validateManifestServerVersion")
+}
+
 tasks.jar {
     manifest {
         attributes(

@@ -221,11 +221,17 @@ Default format: `{nick} {sender}: {msg}`
 <details>
 <summary><strong>Building from Source</strong></summary>
 
-**Requirements:** Java 25, Gradle 9.3+
+**Requirements:** Java 21+, Gradle 8.12+ (wrapper included)
 
 ```bash
-./gradlew shadowJar
+./gradlew jar
 # Output: build/libs/Werchat-1.1.8.jar
+```
+
+`manifest.json` now needs an explicit `ServerVersion` semver range (not `*`), for example:
+
+```json
+"ServerVersion": "=2026.02.17-255364b8e"
 ```
 
 </details>
