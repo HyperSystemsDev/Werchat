@@ -44,7 +44,7 @@ public class Channel {
         this.name = name;
         this.nick = name.toLowerCase().substring(0, Math.min(1, name.length()));
         this.color = Color.WHITE;
-        this.format = "[{nick}] {sender}: {msg}";
+        this.format = "{nick} {sender}: {msg}";
         this.distance = 0;
         this.isDefault = false;
         this.focusable = true;
