@@ -29,7 +29,7 @@
 
 **PlaceholderAPI Integration** — Supports external `%...%` placeholders in channel format text and includes a built-in `%werchat_*%` expansion.
 
-**Plugin API** — Exposes a lightweight `WerchatAPI` for other plugins to query channels, manage membership/focus, and relay chat through Werchat's pipeline.
+**Plugin API** — Exposes a lightweight `WerchatAPI` for other plugins to query channels, manage membership/focus, and submit chat through Werchat's pipeline.
 
 **Message Colors** — Independent message text colors and gradients, separate from nickname colors.
 
@@ -232,11 +232,21 @@ Access Werchat's integration API:
 ```java
 WerchatAPI api = WerchatPlugin.api();
 if (api != null) {
-    api.joinChannel(playerId, "trade", null);
-    api.setFocusedChannel(playerId, "trade");
-    api.relayChat(playerId, "Selling iron!");
+    WerchatOperationOptions opts = WerchatOperationOptions.enforcePermissions();
+
+    WerchatActionResult join = api.joinChannel(playerId, "trade", null, opts);
+    if (join.isSuccess()) {
+        api.setFocusedChannel(playerId, "trade", opts);
+        api.submitPlayerChat(playerId, "Selling iron!", opts);
+    }
 }
 ```
+
+API notes:
+- `submitPlayerChat(...)` is the primary method (legacy `relayChat(...)` still exists as a deprecated alias).
+- `WerchatActionResult` and `WerchatMembershipResult` expose explicit status enums instead of booleans.
+- `api.getApiVersion()`, `api.getCapabilities()`, and `api.hasCapability(...)` let integrations gate behavior safely.
+- Hooks are available through `registerHook(...)` / `unregisterHook(...)` for pre/post API action handling.
 
 </details>
 
