@@ -39,17 +39,30 @@ public class ChannelManager {
         this.suppressDirtyNotifications = false;
     }
 
-    public void loadChannels() {
+    public boolean loadChannels() {
         suppressDirtyNotifications = true;
+
+        Map<String, Channel> previousChannels = new HashMap<>(channels);
+        Channel previousDefault = defaultChannel;
+
+        // Clear in-memory state so reloads reflect disk exactly.
+        for (Channel existing : channels.values()) {
+            existing.setChangeListener(null);
+        }
+        channels.clear();
+        defaultChannel = null;
 
         Path dataDir = plugin.getDataDirectory();
         Path channelsFile = dataDir.resolve("channels.json");
         Path membersFile = dataDir.resolve("channel-members.json");
+        boolean hadChannelsFile = false;
+        boolean loadFailed = false;
 
         try {
             Files.createDirectories(dataDir);
+            hadChannelsFile = Files.exists(channelsFile);
 
-            if (Files.exists(channelsFile)) {
+            if (hadChannelsFile) {
                 String json = Files.readString(channelsFile);
                 JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
                 boolean hasEmbeddedMembers = false;
@@ -79,7 +92,20 @@ public class ChannelManager {
                 plugin.getLogger().at(Level.INFO).log("Loaded %d channels from file", channels.size());
             }
         } catch (Exception e) {
+            loadFailed = true;
             plugin.getLogger().at(Level.WARNING).log("Failed to load channels: %s", e.getMessage());
+        }
+
+        if (loadFailed && !previousChannels.isEmpty()) {
+            channels.clear();
+            for (Channel previous : previousChannels.values()) {
+                previous.setChangeListener(this::markDirty);
+                channels.put(previous.getName().toLowerCase(), previous);
+            }
+            defaultChannel = previousDefault;
+            suppressDirtyNotifications = false;
+            plugin.getLogger().at(Level.WARNING).log("Keeping previous in-memory channel data after load failure");
+            return false;
         }
 
         // Create defaults if none loaded
@@ -110,8 +136,13 @@ public class ChannelManager {
 
         suppressDirtyNotifications = false;
 
-        // Always save to ensure both files exist and old format gets migrated
-        saveChannels();
+        // Save when load succeeded, or when creating first-run defaults.
+        if (!loadFailed || !hadChannelsFile) {
+            saveChannels();
+        } else {
+            plugin.getLogger().at(Level.WARNING).log("Skipped channel save because channels.json failed to parse");
+        }
+        return !loadFailed;
     }
 
     private void loadEmbeddedMembers(Channel ch, JsonObject obj) {

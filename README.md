@@ -102,6 +102,7 @@
 | `/ch mute <channel> <player>` | — | Mute a player in a channel |
 | `/ch unmute <channel> <player>` | — | Unmute a player |
 | `/ch remove <channel>` | `/ch delete`, `/ch del` | Delete a channel |
+| `/ch reload` | — | Reload Werchat config and channel data from disk |
 
 Channel moderators can use admin commands on their own channels without needing global permission nodes.
 
@@ -128,6 +129,7 @@ Channel moderators can use admin commands on their own channels without needing 
 | `werchat.ban` | Ban/unban from channels |
 | `werchat.mute` | Mute/unmute in channels |
 | `werchat.world` | Set world restrictions |
+| `werchat.reload` | Reload Werchat config/channel data |
 | `werchat.msg` | Send private messages |
 | `werchat.ignore` | Ignore players |
 | `werchat.quickchat` | Use quick-chat symbols |

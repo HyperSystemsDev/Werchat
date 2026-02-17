@@ -15,6 +15,7 @@ import com.werchat.storage.PlayerDataManager;
 
 import javax.annotation.Nonnull;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /**
  * /ch command handler
@@ -62,7 +63,7 @@ public class ChannelCommand extends CommandBase {
         if (perms.hasPermission(playerId, "*") || perms.hasPermission(playerId, "werchat.*")) return true;
         String[] adminPerms = {"werchat.create", "werchat.remove", "werchat.color", "werchat.nick",
             "werchat.password", "werchat.rename", "werchat.mod", "werchat.distance",
-            "werchat.ban", "werchat.mute", "werchat.world"};
+            "werchat.ban", "werchat.mute", "werchat.world", "werchat.reload"};
         for (String perm : adminPerms) {
             if (perms.hasPermission(playerId, perm)) return true;
         }
@@ -117,6 +118,14 @@ public class ChannelCommand extends CommandBase {
         // Check for known subcommands first
         switch (cmd) {
             case "help", "?" -> { showHelp(ctx); return; }
+            case "reload" -> {
+                if (!hasWerchatPermission(ctx, "werchat.reload")) {
+                    ctx.sendMessage(Message.raw("You don't have permission to reload Werchat").color("#FF5555"));
+                    return;
+                }
+                reloadData(ctx);
+                return;
+            }
             case "list", "l" -> {
                 if (!hasWerchatPermission(ctx, "werchat.list")) {
                     ctx.sendMessage(Message.raw("You don't have permission to list channels").color("#FF5555"));
@@ -469,8 +478,48 @@ public class ChannelCommand extends CommandBase {
                 Message.raw("  /ch unmute <ch> <player>").color("#FFFFFF"),
                 Message.raw("  Unmute player").color("#AAAAAA")
             ));
+            ctx.sendMessage(Message.join(
+                Message.raw("  /ch reload").color("#FFFFFF"),
+                Message.raw("  Reload config/channels").color("#AAAAAA")
+            ));
         }
         ctx.sendMessage(Message.raw("").color("#000000"));
+    }
+
+    private void reloadData(CommandContext ctx) {
+        try {
+            plugin.getConfig().load();
+            boolean channelsLoaded = channelManager.loadChannels();
+            reconcileFocusedChannelsAfterReload();
+            if (channelsLoaded) {
+                ctx.sendMessage(Message.raw("Werchat config and channels reloaded.").color("#55FF55"));
+            } else {
+                ctx.sendMessage(Message.raw("Reload completed with warnings. Keeping last known channel state.").color("#FFAA00"));
+            }
+        } catch (Exception e) {
+            plugin.getLogger().at(Level.WARNING).log("Werchat reload failed: %s", e.getMessage());
+            ctx.sendMessage(Message.raw("Reload failed. Check server logs.").color("#FF5555"));
+        }
+    }
+
+    private void reconcileFocusedChannelsAfterReload() {
+        Channel defaultChannel = channelManager.getDefaultChannel();
+        if (defaultChannel == null) {
+            return;
+        }
+
+        for (PlayerRef online : playerDataManager.getOnlinePlayers()) {
+            UUID playerId = online.getUuid();
+            Channel focused = channelManager.getChannel(playerDataManager.getFocusedChannel(playerId));
+            if (focused != null && focused.isMember(playerId)) {
+                continue;
+            }
+
+            if (!defaultChannel.isBanned(playerId)) {
+                defaultChannel.addMember(playerId);
+                playerDataManager.setFocusedChannel(playerId, defaultChannel.getName());
+            }
+        }
     }
 
     private void listChannels(CommandContext ctx, UUID playerId) {
