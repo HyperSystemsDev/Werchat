@@ -268,41 +268,41 @@ Direct channel selector alias:
 
 | Key | Description |
 |-----|-------------|
-| `name` | Channel name |
-| `nick` | Channel nick |
-| `colorhex` | Channel tag color hex |
-| `format` | Channel format string |
-| `color` | Raw channel color object string |
-| `effective_msg_colorhex` | Effective message color hex |
-| `join_permission` | Join permission node |
-| `msg_color_hex` | Explicit channel message color hex |
-| `msg_color` | Raw channel message color object string |
-| `quickchatsymbol` | Quick-chat symbol |
-| `see_permission` | See permission node |
-| `speak_permission` | Speak permission node |
-| `worlds_display` | Human-readable world list |
-| `worlds_count` | Number of world restrictions |
-| `worlds` | Comma-separated world list |
-| `distance` | Channel distance |
-| `member_count` | Member count |
-| `moderator_count` | Moderator count |
-| `muted_count` | Muted count |
-| `owner` | Owner UUID |
-| `owner_name` | Owner username/known name |
-| `is_autojoin` | Whether auto-join is enabled |
-| `is_muted` | Whether the player is muted in the channel |
-| `is_banned` | Whether the player is banned from the channel |
-| `is_member` | Whether the player is a channel member |
-| `is_moderator` | Whether the player is a channel moderator |
-| `is_verbose` | Whether verbose mode is enabled |
-| `is_default` | Whether this is the default channel |
-| `is_focusable` | Whether the channel can be focused |
-| `is_global` | Whether channel is global |
-| `is_local` | Whether channel is local |
-| `has_password` | Whether channel has a password |
-| `has_msg_color` | Whether channel has explicit message color |
-| `has_worlds` | Whether channel has world restrictions |
-| `has_quickchatsymbol` | Whether channel has quick-chat symbol |
+| `name` | Channel's canonical name (what admins create/rename) |
+| `nick` | Channel's short label/alias |
+| `colorhex` | Channel tag color as hex (`#RRGGBB`) |
+| `format` | Raw channel format template string |
+| `color` | Raw Java color string for the tag color (`java.awt.Color[...]`) |
+| `effective_msg_colorhex` | Final message text color hex (message color override or tag color fallback) |
+| `join_permission` | Permission node string associated with joining this channel (`werchat.channel.<name>.join`) |
+| `msg_color_hex` | Explicit message text color hex override (`#RRGGBB`), blank when unset |
+| `msg_color` | Raw Java color string for explicit message color (`java.awt.Color[...]`), `null` when unset |
+| `quickchatsymbol` | Quick-chat trigger symbol (for example `!`), blank when unset |
+| `see_permission` | Permission node string associated with viewing/receiving this channel (`werchat.channel.<name>.see`) |
+| `speak_permission` | Permission node string associated with speaking in this channel (`werchat.channel.<name>.speak`) |
+| `worlds_display` | Human-readable worlds display string (`All worlds` or comma list) |
+| `worlds_count` | Number of configured world restrictions |
+| `worlds` | Comma-separated configured world names |
+| `distance` | Channel chat range in blocks (`0` means global/unlimited) |
+| `member_count` | Current number of channel members |
+| `moderator_count` | Current number of channel moderators |
+| `muted_count` | Current number of muted members |
+| `owner` | Channel owner UUID |
+| `owner_name` | Best-known owner name (online username fallback to stored known name) |
+| `is_autojoin` | `true` if this channel auto-joins players on connect |
+| `is_muted` | `true` if the requesting player context is muted in this channel |
+| `is_banned` | `true` if the requesting player context is banned from this channel |
+| `is_member` | `true` if the requesting player context is a member of this channel |
+| `is_moderator` | `true` if the requesting player context is a moderator of this channel |
+| `is_verbose` | `true` if channel verbose mode is enabled |
+| `is_default` | `true` if this is the server default channel |
+| `is_focusable` | `true` if players are allowed to focus/select this channel |
+| `is_global` | `true` if channel range is global (`distance <= 0`) |
+| `is_local` | `true` if channel range is local (`distance > 0`) |
+| `has_password` | `true` if a password is set on this channel |
+| `has_msg_color` | `true` if explicit message color override is set |
+| `has_worlds` | `true` if world restrictions are configured |
+| `has_quickchatsymbol` | `true` if a quick-chat symbol is configured |
 
 </details>
 
