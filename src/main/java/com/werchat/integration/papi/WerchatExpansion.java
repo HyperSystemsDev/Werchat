@@ -222,8 +222,8 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
                 continue;
             }
 
-            String selector = remaining.substring(0, separatorIndex);
-            if (selector.isBlank()) {
+            String selector = normalizeSelector(remaining.substring(0, separatorIndex));
+            if (selector == null) {
                 return null;
             }
 
@@ -243,9 +243,9 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
             return null;
         }
 
-        String selector = remaining.substring(0, explicitSeparator);
+        String selector = normalizeSelector(remaining.substring(0, explicitSeparator));
         String key = remaining.substring(explicitSeparator + KEY_SEPARATOR.length()).toLowerCase(Locale.ROOT);
-        if (selector.isBlank() || !isKnownChannelPlaceholderKey(key)) {
+        if (selector == null || !isKnownChannelPlaceholderKey(key)) {
             return null;
         }
 
@@ -263,18 +263,39 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
                                    PlayerDataManager playerDataManager,
                                    UUID playerId,
                                    String selector) {
-        if (selector == null || selector.isBlank()) {
+        String normalizedSelector = normalizeSelector(selector);
+        if (normalizedSelector == null) {
             return null;
         }
 
-        if (selector.equalsIgnoreCase(getActiveChannelAlias())) {
+        if (normalizedSelector.equalsIgnoreCase(getActiveChannelAlias())) {
             if (playerId == null) {
                 return null;
             }
             return channelManager.getChannel(playerDataManager.getFocusedChannel(playerId));
         }
 
-        return channelManager.getChannel(selector);
+        return channelManager.getChannel(normalizedSelector);
+    }
+
+    private String normalizeSelector(String selector) {
+        if (selector == null) {
+            return null;
+        }
+
+        String normalized = selector.trim();
+        if (normalized.isBlank()) {
+            return null;
+        }
+
+        if (normalized.length() >= 2 && normalized.startsWith("{") && normalized.endsWith("}")) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+            if (normalized.isBlank()) {
+                return null;
+            }
+        }
+
+        return normalized;
     }
 
     private String resolveChannelPlaceholder(Channel channel, PlayerDataManager playerDataManager,

@@ -288,6 +288,12 @@ Preferred keyed forms:
 
 `%werchat_channel_<selector>_<key>%`
 
+Braced selector forms (recommended for underscore channel names):
+
+`%werchat_channel_{<selector>}%`
+
+`%werchat_channel_{<selector>}_<key>%`
+
 Direct channel selector alias:
 
 `%werchat_channel_<selector>%` (returns that channel's name)
@@ -298,12 +304,14 @@ Edge-case keyed form (use only when selector/key underscore ambiguity appears):
 
 `<selector>` values:
 - Exact channel name or nick.
+- Optional `{}` wrapper is supported for explicit selectors (example: `{trade_german}`).
 - Channel names with underscores are supported (example: `trade_name`).
 - Legacy active alias (`active` by default) is still supported for compatibility.
 
 Key separator note:
 - `_` (single underscore) is the primary keyed separator.
 - `__` (double underscore) is the backup separator for ambiguous channel names (example: `trade_name`).
+- Example explicit form: `%werchat_channel_{trade_german}_member_count%`.
 
 `<key>` values:
 
