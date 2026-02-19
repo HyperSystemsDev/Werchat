@@ -1,6 +1,7 @@
 package com.werchat.integration.papi;
 
 import at.helpch.placeholderapi.PlaceholderAPI;
+import at.helpch.placeholderapi.PlaceholderAPIPlugin;
 import at.helpch.placeholderapi.expansion.Configurable;
 import at.helpch.placeholderapi.expansion.PlaceholderExpansion;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -25,6 +26,7 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
     private static final String CHANNEL_PREFIX = "channel_";
     private static final String SELECTED_CHANNEL_KEY_PREFIX = "selected_channel_";
     private static final String KEY_SEPARATOR = "__";
+    private static final String DEFAULT_ACTIVE_CHANNEL_ALIAS = "active";
     private static final List<String> CHANNEL_PLACEHOLDER_KEYS = List.of(
         "effective_msg_colorhex",
         "has_quickchatsymbol",
@@ -353,11 +355,67 @@ public class WerchatExpansion extends PlaceholderExpansion implements Configurab
     }
 
     private String getActiveChannelAlias() {
-        WerchatExpansionConfig config = getConfig();
-        if (config == null || config.activeChannel() == null || config.activeChannel().isBlank()) {
-            return "active";
+        String alias = readActiveChannelAliasFromPapiConfig();
+        if (alias == null || alias.isBlank()) {
+            return DEFAULT_ACTIVE_CHANNEL_ALIAS;
         }
-        return config.activeChannel();
+        return alias;
+    }
+
+    private String readActiveChannelAliasFromPapiConfig() {
+        // Primary path: read raw expansion config directly from PlaceholderAPI.
+        // This stays safe when /papi reload leaves persistent expansions registered but
+        // rehydrates config entries as generic maps.
+        try {
+            Object rawConfig = PlaceholderAPIPlugin.instance()
+                .configManager()
+                .config()
+                .expansions()
+                .get(getIdentifier());
+
+            String alias = extractActiveChannelAlias(rawConfig);
+            if (alias != null && !alias.isBlank()) {
+                return alias;
+            }
+        } catch (Throwable ignored) {
+            // Fall through to typed fallback.
+        }
+
+        // Fallback path: typed Configurable config when available.
+        try {
+            WerchatExpansionConfig typedConfig = getConfig();
+            String alias = typedConfig != null ? typedConfig.activeChannel() : null;
+            if (alias != null && !alias.isBlank()) {
+                return alias;
+            }
+        } catch (Throwable ignored) {
+            // Use default alias when config cannot be read.
+        }
+
+        return null;
+    }
+
+    private String extractActiveChannelAlias(Object configObject) {
+        if (configObject == null) {
+            return null;
+        }
+
+        if (configObject instanceof WerchatExpansionConfig typedConfig) {
+            return typedConfig.activeChannel();
+        }
+
+        if (configObject instanceof java.util.Map<?, ?> configMap) {
+            Object alias = configMap.get("active_channel");
+            if (alias == null) {
+                alias = configMap.get("activeChannel");
+            }
+            if (alias != null) {
+                String text = String.valueOf(alias).trim();
+                return text.isBlank() ? null : text;
+            }
+        }
+
+        return null;
     }
 
     private String joinPlayerNames(Set<UUID> playerIds, PlayerDataManager playerDataManager) {
