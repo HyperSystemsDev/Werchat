@@ -376,14 +376,23 @@ API notes:
 **Requirements:** Java 21+, Gradle 8.12+ (wrapper included)
 
 ```bash
-./gradlew jar
-# Output: build/libs/Werchat-1.1.9.jar
+./gradlew buildRelease
+# Output: build/libs/Werchat-1.1.9.jar (built for latest release channel)
 ```
 
-`manifest.json` now needs an explicit `ServerVersion` that exactly matches the running server build (not `*` and no range operators), for example:
+Build variants:
 
-```json
-"ServerVersion": "2026.02.17-255364b8e"
+```bash
+./gradlew buildRelease      # latest release channel
+./gradlew buildPreRelease   # latest pre-release channel
+./gradlew build             # defaults to release channel
+```
+
+The plugin `manifest.json` `ServerVersion` is injected automatically at build time from Hytale Maven metadata.  
+If you need a manual override for testing, set an explicit version:
+
+```bash
+./gradlew build -Phytale_server_version=2026.02.18-f3b8fff95
 ```
 
 </details>
