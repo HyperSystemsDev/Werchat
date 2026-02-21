@@ -40,6 +40,7 @@ public class ChannelCommand extends CommandBase {
     private static final String CHANNEL_MEMBER_COLOR = "#FFFFFF";
     private static final String SETTINGS_TAB_MAIN = "main";
     private static final String SETTINGS_TAB_CHANNELS = "channels";
+    private static final String SETTINGS_TAB_HELP = "help";
 
     /**
      * Check if sender has a werchat permission, including wildcard support.
@@ -401,7 +402,7 @@ public class ChannelCommand extends CommandBase {
     }
 
     private void showHelp(CommandContext ctx) {
-        openSettings(ctx, SETTINGS_TAB_MAIN);
+        openSettings(ctx, SETTINGS_TAB_HELP);
     }
 
     private void openSettings(CommandContext ctx) {

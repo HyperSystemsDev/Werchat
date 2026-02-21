@@ -40,6 +40,7 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
 
     private static final String TAB_MAIN = "main";
     private static final String TAB_CHANNELS = "channels";
+    private static final String TAB_HELP = "help";
     private static final String TAB_MOD_PREFIX = "mod:";
     private static final String MOD_LIST_BANS = "bans";
     private static final String MOD_LIST_MUTES = "mutes";
@@ -87,6 +88,9 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
             return TAB_MAIN;
         }
         String normalized = tab.trim().toLowerCase(Locale.ROOT);
+        if (TAB_HELP.equals(normalized)) {
+            return TAB_HELP;
+        }
         if (TAB_CHANNELS.equals(normalized)) {
             return TAB_CHANNELS;
         }
@@ -110,6 +114,7 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         applyTabState(cmd);
         renderModeratorTabs(cmd, moderatorChannels);
         renderMainPanel(cmd, viewerId);
+        renderHelpPanel(cmd, viewerId);
         renderChannels(cmd, events, viewerId);
         renderJoinPasswordModal(cmd);
         renderModeratorPanel(cmd, viewerId);
@@ -218,6 +223,7 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         applyTabState(cmd);
         renderModeratorTabs(cmd, moderatorChannels);
         renderMainPanel(cmd, viewerId);
+        renderHelpPanel(cmd, viewerId);
         renderChannels(cmd, events, viewerId);
         renderJoinPasswordModal(cmd);
         renderModeratorPanel(cmd, viewerId);
@@ -335,9 +341,11 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
     private void applyTabState(UICommandBuilder cmd) {
         boolean main = TAB_MAIN.equals(activeTab);
         boolean channels = TAB_CHANNELS.equals(activeTab);
+        boolean help = TAB_HELP.equals(activeTab);
         boolean moderator = activeTab.startsWith(TAB_MOD_PREFIX);
 
         cmd.set("#MainPanel.Visible", main);
+        cmd.set("#HelpPanel.Visible", help);
         cmd.set("#ChannelsPanel.Visible", channels);
         cmd.set("#ModeratorPanel.Visible", moderator);
         cmd.set("#ModeratorTabsSection.Visible", channels || moderator);
@@ -482,17 +490,21 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         cmd.set("#MainApplyMsgColorButton.Disabled", !canMsgColor);
         cmd.set("#MainApplyMsgGradientButton.Disabled", !canMsgColor);
         cmd.set("#MainClearMsgColorButton.Disabled", !canMsgColor);
-        renderHelpCommands(cmd, viewerId);
+        renderHelpCommands(cmd, viewerId, "#MainHelpCommands");
     }
 
-    private void renderHelpCommands(UICommandBuilder cmd, UUID viewerId) {
+    private void renderHelpPanel(UICommandBuilder cmd, UUID viewerId) {
+        renderHelpCommands(cmd, viewerId, "#HelpCommands");
+    }
+
+    private void renderHelpCommands(UICommandBuilder cmd, UUID viewerId, String containerSelector) {
         List<HelpCommandLine> lines = buildHelpCommandLines(viewerId);
-        cmd.clear("#MainHelpCommands");
+        cmd.clear(containerSelector);
 
         for (int i = 0; i < lines.size(); i++) {
             HelpCommandLine line = lines.get(i);
-            String base = "#MainHelpCommands[" + i + "]";
-            cmd.append("#MainHelpCommands", "Werchat/HelpCommandRow.ui");
+            String base = containerSelector + "[" + i + "]";
+            cmd.append(containerSelector, "Werchat/HelpCommandRow.ui");
             cmd.set(base + " #HelpCommandText.Text", line.text());
             cmd.set(base + " #HelpCommandText.Style.TextColor", line.colorHex());
         }
@@ -539,6 +551,7 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
             playerCommands.add("/ignorelist - Show ignored players");
         }
 
+        boolean canModerateAnyChannel = !getModeratorChannels(viewerId).isEmpty();
         List<String> managementCommands = new ArrayList<>();
         if (hasPermission(viewerId, "werchat.create")) {
             managementCommands.add("/ch create <name> - Create channel");
@@ -546,40 +559,40 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         if (hasPermission(viewerId, "werchat.remove")) {
             managementCommands.add("/ch remove <channel> - Delete channel");
         }
-        if (hasPermission(viewerId, "werchat.rename")) {
+        if (hasPermission(viewerId, "werchat.rename") || canModerateAnyChannel) {
             managementCommands.add("/ch rename <channel> <newname> - Rename channel");
         }
-        if (hasPermission(viewerId, "werchat.color")) {
+        if (hasPermission(viewerId, "werchat.color") || canModerateAnyChannel) {
             managementCommands.add("/ch color <channel> <#tag> [#text] - Set channel colors");
         }
-        if (hasPermission(viewerId, "werchat.nick")) {
+        if (hasPermission(viewerId, "werchat.nick") || canModerateAnyChannel) {
             managementCommands.add("/ch nick <channel> <nick> - Set channel nick");
         }
-        if (hasPermission(viewerId, "werchat.password")) {
+        if (hasPermission(viewerId, "werchat.password") || canModerateAnyChannel) {
             managementCommands.add("/ch password <channel> [password] - Set or clear password");
         }
-        if (hasPermission(viewerId, "werchat.description")) {
+        if (hasPermission(viewerId, "werchat.description") || canModerateAnyChannel) {
             managementCommands.add("/ch description <channel> <text|on|off|clear> - Description");
         }
-        if (hasPermission(viewerId, "werchat.motd")) {
+        if (hasPermission(viewerId, "werchat.motd") || canModerateAnyChannel) {
             managementCommands.add("/ch motd <channel> <text|on|off|clear> - MOTD");
         }
-        if (hasPermission(viewerId, "werchat.distance")) {
+        if (hasPermission(viewerId, "werchat.distance") || canModerateAnyChannel) {
             managementCommands.add("/ch distance <channel> <blocks> - Set range (0 global)");
         }
-        if (hasPermission(viewerId, "werchat.world")) {
+        if (hasPermission(viewerId, "werchat.world") || canModerateAnyChannel) {
             managementCommands.add("/ch world <channel> add|remove <world> - World restriction");
             managementCommands.add("/ch world <channel> none - Clear world restrictions");
         }
-        if (hasPermission(viewerId, "werchat.mod")) {
+        if (hasPermission(viewerId, "werchat.mod") || canModerateAnyChannel) {
             managementCommands.add("/ch mod <channel> <player> - Add moderator");
             managementCommands.add("/ch unmod <channel> <player> - Remove moderator");
         }
-        if (hasPermission(viewerId, "werchat.ban")) {
+        if (hasPermission(viewerId, "werchat.ban") || canModerateAnyChannel) {
             managementCommands.add("/ch ban <channel> <player> - Ban player");
             managementCommands.add("/ch unban <channel> <player> - Unban player");
         }
-        if (hasPermission(viewerId, "werchat.mute")) {
+        if (hasPermission(viewerId, "werchat.mute") || canModerateAnyChannel) {
             managementCommands.add("/ch mute <channel> <player> - Mute player");
             managementCommands.add("/ch unmute <channel> <player> - Unmute player");
         }
@@ -1200,7 +1213,7 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         cmd.set("#ModDistanceDropdown.Value", toDistancePresetValue(channel.getDistance()));
         cmd.set("#ModDistanceInput.Value", String.valueOf(Math.max(0, channel.getDistance())));
         cmd.set("#ModTagColorPicker.Color", channel.getColorHex());
-        cmd.set("#ModTextColorPicker.Color", channel.hasMessageColor() ? channel.getMessageColorHex() : channel.getColorHex());
+        cmd.set("#ModTextColorPicker.Color", defaultColor(channel.getMessageColorHex()));
         renderModeratorActionFeedback(cmd);
 
     }

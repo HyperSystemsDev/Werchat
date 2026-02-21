@@ -500,6 +500,38 @@ $C.@DecoratedContainer {
           }
         }
 
+        Group #HelpPanel {
+          Anchor: (Left: 0, Right: 0, Top: 0, Bottom: 0);
+          LayoutMode: Top;
+          Visible: false;
+
+          Label {
+            Text: "Command Help";
+            Style: (FontSize: 20, TextColor: #ffffff, RenderBold: true);
+          }
+
+          Label {
+            Text: "Only commands you have permission for are shown.";
+            Style: (TextColor: #9eb3cc, FontSize: 13);
+            Padding: (Top: 2, Bottom: 8);
+          }
+
+          Group #HelpCommandsWrap {
+            FlexWeight: 1;
+            Anchor: (Left: 0, Right: 0);
+            LayoutMode: TopScrolling;
+            ScrollbarStyle: $C.@DefaultExtraSpacingScrollbarStyle;
+            Padding: (Right: 8);
+            Background: (Color: #0a1627);
+
+            Group #HelpCommands {
+              LayoutMode: Top;
+              Anchor: (Left: 0, Right: 0);
+              Padding: (Top: 8, Left: 8, Right: 8, Bottom: 8);
+            }
+          }
+        }
+
         Group #ChannelsPanel {
           Anchor: (Left: 0, Right: 0, Top: 0, Bottom: 0);
           LayoutMode: Top;

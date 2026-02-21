@@ -50,8 +50,6 @@ public class ChannelManager {
         private final boolean quickChatEnabled;
         private final boolean isDefault;
         private final boolean autoJoin;
-        private final boolean focusable;
-        private final boolean verbose;
         private final String description;
         private final boolean descriptionEnabled;
         private final String motd;
@@ -75,8 +73,6 @@ public class ChannelManager {
             this.quickChatEnabled = channel.isQuickChatEnabled();
             this.isDefault = channel.isDefault();
             this.autoJoin = channel.isAutoJoin();
-            this.focusable = channel.isFocusable();
-            this.verbose = channel.isVerbose();
             this.description = channel.getDescription();
             this.descriptionEnabled = channel.isDescriptionEnabled();
             this.motd = channel.getMotd();
@@ -479,8 +475,6 @@ public class ChannelManager {
         obj.addProperty("quickChatEnabled", snapshot.quickChatEnabled);
         obj.addProperty("isDefault", snapshot.isDefault);
         obj.addProperty("autoJoin", snapshot.autoJoin);
-        obj.addProperty("focusable", snapshot.focusable);
-        obj.addProperty("verbose", snapshot.verbose);
         obj.addProperty("description", snapshot.description);
         obj.addProperty("descriptionEnabled", snapshot.descriptionEnabled);
         obj.addProperty("motd", snapshot.motd);
