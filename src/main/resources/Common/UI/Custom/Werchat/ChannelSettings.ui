@@ -156,7 +156,7 @@ $C.@DecoratedContainer {
           Visible: true;
 
           Label {
-            Text: "Profile and Session";
+            Text: "Profile";
             Style: (FontSize: 20, TextColor: #ffffff, RenderBold: true);
           }
 
