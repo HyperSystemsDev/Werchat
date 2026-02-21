@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.werchat"
-version = "1.11.0"
+version = "1.11.1"
 
 fun resolveHytaleVersion(channel: String): String {
     val metadataUrl = "https://maven.hytale.com/$channel/com/hypixel/hytale/Server/maven-metadata.xml"

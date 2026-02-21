@@ -16,6 +16,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
 import java.util.logging.Level;
 
 /**
@@ -35,6 +36,8 @@ public class ChannelManager {
     private final Object saveStateLock = new Object();
     private ScheduledFuture<?> pendingSaveTask;
     private boolean suppressDirtyNotifications;
+    private volatile String lastKnownChannelsSignature = "";
+    private volatile String lastKnownMembersSignature = "";
     private Channel defaultChannel;
 
     private static final class ChannelSaveSnapshot {
@@ -296,6 +299,38 @@ public class ChannelManager {
         saveChannels();
     }
 
+    /**
+     * Cancels any queued debounced save without writing current in-memory state to disk.
+     * Used by reload flows where disk should remain source-of-truth.
+     */
+    public void discardPendingSave() {
+        synchronized (saveStateLock) {
+            if (pendingSaveTask != null) {
+                pendingSaveTask.cancel(false);
+                pendingSaveTask = null;
+            }
+        }
+    }
+
+    /**
+     * Returns true when channel data files changed on disk since Werchat's last load/save snapshot.
+     */
+    public boolean hasExternalChannelDataEdits() {
+        Path dataDir = plugin.getDataDirectory();
+        String currentChannelsSig = computeFileSignature(dataDir.resolve("channels.json"));
+        String currentMembersSig = computeFileSignature(dataDir.resolve("channel-members.json"));
+        synchronized (saveStateLock) {
+            if (lastKnownChannelsSignature.isEmpty() && lastKnownMembersSignature.isEmpty()) {
+                // Baseline not initialized yet; initialize now and treat as no external edits.
+                lastKnownChannelsSignature = currentChannelsSig;
+                lastKnownMembersSignature = currentMembersSig;
+                return false;
+            }
+            return !Objects.equals(lastKnownChannelsSignature, currentChannelsSig)
+                || !Objects.equals(lastKnownMembersSignature, currentMembersSig);
+        }
+    }
+
     public void flushPendingSaveNow() {
         synchronized (saveStateLock) {
             if (pendingSaveTask != null) {
@@ -343,6 +378,7 @@ public class ChannelManager {
 
             // Save member data separately
             saveMembers(dataDir, snapshots);
+            refreshKnownFileSignatures(dataDir);
 
             plugin.getLogger().at(Level.INFO).log("Saved %d channels", snapshots.size());
         } catch (Exception e) {
@@ -481,6 +517,28 @@ public class ChannelManager {
         obj.addProperty("motdEnabled", snapshot.motdEnabled);
 
         return obj;
+    }
+
+    private void refreshKnownFileSignatures(Path dataDir) {
+        String channelsSig = computeFileSignature(dataDir.resolve("channels.json"));
+        String membersSig = computeFileSignature(dataDir.resolve("channel-members.json"));
+        synchronized (saveStateLock) {
+            lastKnownChannelsSignature = channelsSig;
+            lastKnownMembersSignature = membersSig;
+        }
+    }
+
+    private String computeFileSignature(Path file) {
+        try {
+            if (!Files.exists(file)) {
+                return "<missing>";
+            }
+            byte[] bytes = Files.readAllBytes(file);
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            return "<error>";
+        }
     }
 
     private Channel deserializeChannel(JsonObject obj) {

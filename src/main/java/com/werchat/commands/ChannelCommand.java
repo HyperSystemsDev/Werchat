@@ -457,10 +457,26 @@ public class ChannelCommand extends CommandBase {
 
     private void reloadData(CommandContext ctx) {
         try {
-            channelManager.flushPendingSaveNow();
-            playerDataManager.flushPendingNicknameSaveNow();
+            boolean externalChannelEdits = channelManager.hasExternalChannelDataEdits();
+            boolean externalNicknameEdits = playerDataManager.hasExternalNicknameDataEdits();
+
+            if (externalChannelEdits) {
+                channelManager.discardPendingSave();
+                plugin.getLogger().at(Level.INFO).log("Detected external channel file edits; reloading from disk without pre-save");
+            } else {
+                channelManager.flushPendingSaveNow();
+            }
+
+            if (externalNicknameEdits) {
+                playerDataManager.discardPendingNicknameSave();
+                plugin.getLogger().at(Level.INFO).log("Detected external nicknames file edits; reloading from disk without pre-save");
+            } else {
+                playerDataManager.flushPendingNicknameSaveNow();
+            }
+
             plugin.getConfig().load();
             boolean channelsLoaded = channelManager.loadChannels();
+            playerDataManager.loadNicknames();
             reconcileFocusedChannelsAfterReload();
             if (channelsLoaded) {
                 ctx.sendMessage(Message.raw("Werchat config and channels reloaded.").color("#55FF55"));

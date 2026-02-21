@@ -17,6 +17,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
 import java.util.logging.Level;
 
 public class PlayerDataManager {
@@ -30,6 +31,7 @@ public class PlayerDataManager {
     private final ScheduledExecutorService nicknameSaveExecutor;
     private final Object nicknameSaveLock = new Object();
     private ScheduledFuture<?> pendingNicknameSave;
+    private volatile String lastKnownNicknamesSignature = "";
 
     public PlayerDataManager(WerchatPlugin plugin) {
         this.plugin = plugin;
@@ -191,6 +193,32 @@ public class PlayerDataManager {
         saveNicknames();
     }
 
+    /**
+     * Cancels queued debounced nickname saves without writing current in-memory state to disk.
+     */
+    public void discardPendingNicknameSave() {
+        synchronized (nicknameSaveLock) {
+            if (pendingNicknameSave != null) {
+                pendingNicknameSave.cancel(false);
+                pendingNicknameSave = null;
+            }
+        }
+    }
+
+    /**
+     * Returns true when nicknames.json changed on disk since Werchat's last load/save snapshot.
+     */
+    public boolean hasExternalNicknameDataEdits() {
+        String currentSig = computeFileSignature(getNicknamesFile());
+        synchronized (nicknameSaveLock) {
+            if (lastKnownNicknamesSignature.isEmpty()) {
+                lastKnownNicknamesSignature = currentSig;
+                return false;
+            }
+            return !Objects.equals(lastKnownNicknamesSignature, currentSig);
+        }
+    }
+
     public void shutdownDebouncedSaver() {
         synchronized (nicknameSaveLock) {
             if (pendingNicknameSave != null) {
@@ -232,6 +260,7 @@ public class PlayerDataManager {
                 }
                 plugin.getLogger().at(Level.INFO).log("Loaded %d nicknames", loaded.size());
             }
+            refreshKnownNicknameSignature();
         } catch (Exception e) {
             plugin.getLogger().at(Level.WARNING).log("Failed to load nicknames: %s", e.getMessage());
         }
@@ -253,8 +282,29 @@ public class PlayerDataManager {
             try (Writer writer = Files.newBufferedWriter(file)) {
                 gson.toJson(toSave, writer);
             }
+            refreshKnownNicknameSignature();
         } catch (Exception e) {
             plugin.getLogger().at(Level.WARNING).log("Failed to save nicknames: %s", e.getMessage());
+        }
+    }
+
+    private void refreshKnownNicknameSignature() {
+        String sig = computeFileSignature(getNicknamesFile());
+        synchronized (nicknameSaveLock) {
+            lastKnownNicknamesSignature = sig;
+        }
+    }
+
+    private String computeFileSignature(Path file) {
+        try {
+            if (!Files.exists(file)) {
+                return "<missing>";
+            }
+            byte[] bytes = Files.readAllBytes(file);
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            return "<error>";
         }
     }
 

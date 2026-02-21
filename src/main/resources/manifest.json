@@ -1,7 +1,7 @@
 {
   "Group": "com.werchat",
   "Name": "Werchat",
-  "Version": "1.11.0",
+  "Version": "1.11.1",
   "Main": "com.werchat.WerchatPlugin",
   "Description": "Channel-based chat system for Hytale servers",
   "IncludesAssetPack": true,
