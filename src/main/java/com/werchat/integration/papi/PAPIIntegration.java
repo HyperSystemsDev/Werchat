@@ -9,12 +9,7 @@ import com.werchat.WerchatPlugin;
 public interface PAPIIntegration {
 
     static PAPIIntegration register(WerchatPlugin plugin) {
-        try {
-            Class.forName("at.helpch.placeholderapi.PlaceholderAPI");
-            return new PAPIImplementation(plugin);
-        } catch (ClassNotFoundException ignored) {
-            return null;
-        }
+        return PAPIHolder.getOrCreate(plugin);
     }
 
     String setPlaceholders(PlayerRef player, String text);
