@@ -57,7 +57,13 @@ public class PAPIImplementation implements PAPIIntegration {
                 }
 
                 WerchatExpansion expansion = new WerchatExpansion(plugin);
-                if (expansion.isRegistered() || expansion.register()) {
+                if (expansion.isRegistered()) {
+                    expansionRegistered = true;
+                    loggedRegistrationFailure = false;
+                    return;
+                }
+
+                if (expansion.register()) {
                     expansionRegistered = true;
                     loggedRegistrationFailure = false;
                     plugin.getLogger().at(Level.INFO).log("PlaceholderAPI integration enabled");
