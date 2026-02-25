@@ -12,5 +12,8 @@
   ],
   "Website": "",
   "ServerVersion": "${server_version}",
+  "OptionalDependencies": {
+    "HelpChat:PlaceholderAPI": "*"
+  },
   "Dependencies": {}
 }

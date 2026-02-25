@@ -15,6 +15,7 @@ import com.werchat.commands.ReplyCommand;
 import com.werchat.config.WerchatConfig;
 import com.werchat.api.WerchatAPI;
 import com.werchat.api.WerchatAPIImpl;
+import com.werchat.integration.papi.PAPIIntegration;
 import com.werchat.listeners.ChatListener;
 import com.werchat.listeners.PlayerListener;
 import com.werchat.storage.PlayerDataManager;
@@ -66,6 +67,7 @@ public class WerchatPlugin extends JavaPlugin {
     @Override
     protected void setup() {
         getLogger().at(Level.INFO).log("Werchat is registering events and commands...");
+        PAPIIntegration.register(this);
         registerListeners();
         registerCommands();
 

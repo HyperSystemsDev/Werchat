@@ -46,12 +46,6 @@ public class PlayerListener {
         playerDataManager.trackPlayer(playerId, player);
         channelManager.resetMotdSession(playerId);
 
-        // Ensure Werchat PlaceholderAPI expansion is registered early so
-        // /papi parse works before first chat message is sent.
-        if (chatListener != null) {
-            chatListener.ensurePapiExpansionRegistered(player);
-        }
-
         Channel firstJoinedChannel = null;
 
         // Auto-join channels flagged with autoJoin, optionally skipping default when disabled in config

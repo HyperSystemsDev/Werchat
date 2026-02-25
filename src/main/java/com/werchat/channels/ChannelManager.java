@@ -32,7 +32,6 @@ public class ChannelManager {
     private final Gson gson;
     private final ScheduledExecutorService saveExecutor;
     private final Set<UUID> motdShownThisLogin;
-    private final PAPIIntegration papi;
     private final Object saveStateLock = new Object();
     private ScheduledFuture<?> pendingSaveTask;
     private boolean suppressDirtyNotifications;
@@ -94,7 +93,6 @@ public class ChannelManager {
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.saveExecutor = Executors.newSingleThreadScheduledExecutor();
         this.motdShownThisLogin = Collections.synchronizedSet(new HashSet<>());
-        this.papi = PAPIIntegration.register(plugin);
         this.suppressDirtyNotifications = false;
     }
 
@@ -874,6 +872,8 @@ public class ChannelManager {
     }
 
     private String applyPapi(PlayerRef player, String text) {
+        final PAPIIntegration papi = PAPIIntegration.get();
+
         if (text == null || text.isEmpty() || player == null || papi == null) {
             return text == null ? "" : text;
         }

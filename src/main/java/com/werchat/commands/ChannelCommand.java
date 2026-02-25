@@ -34,7 +34,6 @@ public class ChannelCommand extends CommandBase {
     private final WerchatPlugin plugin;
     private final ChannelManager channelManager;
     private final PlayerDataManager playerDataManager;
-    private final PAPIIntegration papi;
     private static final String CHANNEL_OWNER_COLOR = "#FFAA00";
     private static final String CHANNEL_MODERATOR_COLOR = "#55FF55";
     private static final String CHANNEL_MEMBER_COLOR = "#FFFFFF";
@@ -92,7 +91,6 @@ public class ChannelCommand extends CommandBase {
         this.plugin = plugin;
         this.channelManager = plugin.getChannelManager();
         this.playerDataManager = plugin.getPlayerDataManager();
-        this.papi = PAPIIntegration.register(plugin);
 
         // Available to all players in Adventure mode
         this.setPermissionGroup(GameMode.Adventure);
@@ -671,6 +669,8 @@ public class ChannelCommand extends CommandBase {
     }
 
     private String applyPapi(UUID playerId, String text) {
+        final PAPIIntegration papi = PAPIIntegration.get();
+
         if (text == null || text.isEmpty() || papi == null) {
             return text == null ? "" : text;
         }
@@ -682,6 +682,8 @@ public class ChannelCommand extends CommandBase {
     }
 
     private String applyPapi(PlayerRef player, String text) {
+        final PAPIIntegration papi = PAPIIntegration.get();
+
         if (text == null || text.isEmpty() || player == null || papi == null) {
             return text == null ? "" : text;
         }

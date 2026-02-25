@@ -57,7 +57,6 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
     private final WerchatPlugin plugin;
     private final ChannelManager channelManager;
     private final PlayerDataManager playerDataManager;
-    private final PAPIIntegration papi;
 
     private String activeTab = TAB_MAIN;
     private String selectedMainChannel;
@@ -75,7 +74,6 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
         this.plugin = plugin;
         this.channelManager = plugin.getChannelManager();
         this.playerDataManager = plugin.getPlayerDataManager();
-        this.papi = PAPIIntegration.register(plugin);
     }
 
     public ChannelSettingsPage(WerchatPlugin plugin, PlayerRef playerRef, String initialTab) {
@@ -1938,6 +1936,8 @@ public class ChannelSettingsPage extends InteractiveCustomUIPage<ChannelSettings
     }
 
     private String applyPapi(UUID viewerId, String text) {
+        final PAPIIntegration papi = PAPIIntegration.get();
+
         if (text == null || text.isEmpty() || papi == null) {
             return text == null ? "" : text;
         }

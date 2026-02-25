@@ -28,7 +28,6 @@ public class ChatListener {
     private final ChannelManager channelManager;
     private final PlayerDataManager playerDataManager;
     private final WerchatConfig config;
-    private final PAPIIntegration papi;
 
     // Pattern for @mentions
     private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
@@ -60,13 +59,6 @@ public class ChatListener {
         this.channelManager = plugin.getChannelManager();
         this.playerDataManager = plugin.getPlayerDataManager();
         this.config = plugin.getConfig();
-        this.papi = PAPIIntegration.register(plugin);
-    }
-
-    public void ensurePapiExpansionRegistered(PlayerRef player) {
-        if (papi != null) {
-            papi.ensureExpansionRegistered(player);
-        }
     }
 
     /**
@@ -639,6 +631,8 @@ public class ChatListener {
     }
 
     private String applyPapi(PlayerRef sender, PlayerRef recipient, String text) {
+        final PAPIIntegration papi = PAPIIntegration.get();
+
         if (text == null || text.isEmpty() || papi == null) {
             return text == null ? "" : text;
         }
