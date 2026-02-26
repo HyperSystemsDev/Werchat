@@ -565,7 +565,11 @@ public class ChatListener {
             format = "{nick} {sender}: {msg}";
         }
 
-        return renderFormat(format, tokenParts, sender, recipient);
+        // Resolve PAPI placeholders across the full format first, then apply
+        // Werchat token replacement so placeholder syntax is not split by token parsing.
+        format = applyPapi(sender, recipient, format);
+
+        return renderFormat(format, tokenParts);
     }
 
     private Message buildSenderPart(UUID senderId, String displayName, String nickColor) {
@@ -592,13 +596,13 @@ public class ChatListener {
         return buildStyledMessageWithLinks(message, channel.getEffectiveMessageColorHex(), false, false);
     }
 
-    private Message renderFormat(String format, Map<String, Message> tokenParts, PlayerRef sender, PlayerRef recipient) {
+    private Message renderFormat(String format, Map<String, Message> tokenParts) {
         List<Message> parts = new ArrayList<>();
         Matcher matcher = FORMAT_TOKEN_PATTERN.matcher(format);
         int last = 0;
 
         while (matcher.find()) {
-            appendLiteralPart(parts, format.substring(last, matcher.start()), sender, recipient);
+            appendLiteralPart(parts, format.substring(last, matcher.start()));
 
             Message tokenPart = tokenParts.get(matcher.group(1));
             if (tokenPart != null) {
@@ -608,7 +612,7 @@ public class ChatListener {
             last = matcher.end();
         }
 
-        appendLiteralPart(parts, format.substring(last), sender, recipient);
+        appendLiteralPart(parts, format.substring(last));
 
         if (parts.isEmpty()) {
             return Message.raw("");
@@ -619,15 +623,11 @@ public class ChatListener {
         return Message.join(parts.toArray(new Message[0]));
     }
 
-    private void appendLiteralPart(List<Message> parts, String literal, PlayerRef sender, PlayerRef recipient) {
+    private void appendLiteralPart(List<Message> parts, String literal) {
         if (literal == null || literal.isEmpty()) {
             return;
         }
-
-        String resolved = applyPapi(sender, recipient, literal);
-        if (!resolved.isEmpty()) {
-            parts.add(parseColoredString(resolved));
-        }
+        parts.add(parseColoredString(literal));
     }
 
     private String applyPapi(PlayerRef sender, PlayerRef recipient, String text) {
