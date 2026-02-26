@@ -2,12 +2,12 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/HyperSystemsDev/Werchat?label=version)](https://github.com/HyperSystemsDev/Werchat/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.gg/SNPjyfkYPc)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.com/invite/aZaa5vcFYh)
 [![GitHub Stars](https://img.shields.io/github/stars/HyperSystemsDev/Werchat?style=social)](https://github.com/HyperSystemsDev/Werchat)
 
 **Channel-based chat system for Hytale servers.** Multiple channels, quick-chat routing, private messaging, nicknames, and moderation — all in one plugin.
 
-**[Discord](https://discord.gg/SNPjyfkYPc)**
+**[Discord](https://discord.com/invite/aZaa5vcFYh)**
 
 ![Werchat](WerChat.png)
 
@@ -430,7 +430,7 @@ If you need a manual override for testing, set an explicit version:
 
 ## Links
 
-- [Discord](https://discord.gg/SNPjyfkYPc) — Support & community
+- [Discord](https://discord.com/invite/aZaa5vcFYh) — Support & community
 - [Issues](https://github.com/HyperSystemsDev/Werchat/issues) — Bug reports & features
 - [Releases](https://github.com/HyperSystemsDev/Werchat/releases) — Downloads
 
