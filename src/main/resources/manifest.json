@@ -13,7 +13,8 @@
   "Website": "",
   "ServerVersion": "${server_version}",
   "OptionalDependencies": {
-    "HelpChat:PlaceholderAPI": "*"
+    "HelpChat:PlaceholderAPI": "*",
+    "LuckPerms:LuckPerms": "*"
   },
   "Dependencies": {}
 }

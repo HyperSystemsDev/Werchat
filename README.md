@@ -263,6 +263,7 @@ Custom channel message formats support these placeholders:
 Default format: `{nick} {sender}: {msg}`
 
 Format literals also support PlaceholderAPI placeholders when PlaceholderAPI is installed.
+`{prefix}` / `{suffix}` resolve directly from HyperPerms/LuckPerms when those plugins are present, even without PlaceholderAPI placeholders.
 
 Werchat also registers a built-in PlaceholderAPI expansion with identifier `werchat`.
 

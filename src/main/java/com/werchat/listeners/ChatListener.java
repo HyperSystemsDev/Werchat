@@ -48,9 +48,13 @@ public class ChatListener {
     private static boolean luckPermsAvailable = false;
     private static Method luckPermsProviderGet = null;
     private static Method luckPermsGetUserManager = null;
+    private static Method luckPermsGetContextManager = null;
     private static Method userManagerGetUser = null;
     private static Method userGetCachedData = null;
     private static Method cachedDataGetMetaData = null;
+    private static Method cachedDataGetMetaDataWithQueryOptions = null;
+    private static Method contextManagerGetQueryOptions = null;
+    private static Method contextManagerGetStaticQueryOptions = null;
     private static Method metaDataGetPrefix = null;
     private static Method metaDataGetSuffix = null;
 
@@ -166,6 +170,7 @@ public class ChatListener {
 
             Class<?> luckPermsClass = Class.forName("net.luckperms.api.LuckPerms");
             luckPermsGetUserManager = luckPermsClass.getMethod("getUserManager");
+            luckPermsGetContextManager = luckPermsClass.getMethod("getContextManager");
 
             Class<?> userManagerClass = Class.forName("net.luckperms.api.model.user.UserManager");
             userManagerGetUser = userManagerClass.getMethod("getUser", UUID.class);
@@ -175,16 +180,79 @@ public class ChatListener {
 
             Class<?> cachedDataClass = Class.forName("net.luckperms.api.cacheddata.CachedDataManager");
             cachedDataGetMetaData = cachedDataClass.getMethod("getMetaData");
+            try {
+                Class<?> queryOptionsClass = Class.forName("net.luckperms.api.query.QueryOptions");
+                cachedDataGetMetaDataWithQueryOptions = cachedDataClass.getMethod("getMetaData", queryOptionsClass);
+            } catch (Exception ignored) {
+                cachedDataGetMetaDataWithQueryOptions = null;
+            }
+
+            try {
+                Class<?> contextManagerClass = Class.forName("net.luckperms.api.context.ContextManager");
+                contextManagerGetQueryOptions = contextManagerClass.getMethod("getQueryOptions", userClass);
+                contextManagerGetStaticQueryOptions = contextManagerClass.getMethod("getStaticQueryOptions");
+            } catch (Exception ignored) {
+                contextManagerGetQueryOptions = null;
+                contextManagerGetStaticQueryOptions = null;
+            }
 
             Class<?> metaDataClass = Class.forName("net.luckperms.api.cacheddata.CachedMetaData");
             metaDataGetPrefix = metaDataClass.getMethod("getPrefix");
             metaDataGetSuffix = metaDataClass.getMethod("getSuffix");
+
+            // Ensure provider is actually loaded before we mark integration enabled.
+            Object luckPerms = luckPermsProviderGet.invoke(null);
+            if (luckPerms == null) {
+                throw new IllegalStateException("LuckPerms provider returned null");
+            }
 
             luckPermsAvailable = true;
             plugin.getLogger().at(Level.INFO).log("LuckPerms integration enabled for prefix/suffix display");
         } catch (Exception e) {
             luckPermsAvailable = false;
         }
+    }
+
+    private Object resolveLuckPermsMetaData(Object luckPerms, Object user, Object cachedData) throws Exception {
+        if (cachedData == null) {
+            return null;
+        }
+
+        // Prefer context-aware metadata when available.
+        if (cachedDataGetMetaDataWithQueryOptions != null
+            && luckPermsGetContextManager != null
+            && luckPerms != null
+        ) {
+            Object contextManager = luckPermsGetContextManager.invoke(luckPerms);
+            if (contextManager != null) {
+                Object queryOptions = null;
+
+                if (contextManagerGetQueryOptions != null && user != null) {
+                    Object optional = contextManagerGetQueryOptions.invoke(contextManager, user);
+                    if (optional instanceof Optional<?> maybe && maybe.isPresent()) {
+                        queryOptions = maybe.get();
+                    }
+                }
+
+                if (queryOptions == null && contextManagerGetStaticQueryOptions != null) {
+                    queryOptions = contextManagerGetStaticQueryOptions.invoke(contextManager);
+                }
+
+                if (queryOptions != null) {
+                    Object metaData = cachedDataGetMetaDataWithQueryOptions.invoke(cachedData, queryOptions);
+                    if (metaData != null) {
+                        return metaData;
+                    }
+                }
+            }
+        }
+
+        // Fallback for APIs exposing a no-arg metadata resolver.
+        if (cachedDataGetMetaData != null) {
+            return cachedDataGetMetaData.invoke(cachedData);
+        }
+
+        return null;
     }
 
     /**
@@ -209,11 +277,17 @@ public class ChatListener {
         if (luckPermsAvailable) {
             try {
                 Object luckPerms = luckPermsProviderGet.invoke(null);
+                if (luckPerms == null) {
+                    return "";
+                }
                 Object userManager = luckPermsGetUserManager.invoke(luckPerms);
                 Object user = userManagerGetUser.invoke(userManager, playerId);
                 if (user != null) {
                     Object cachedData = userGetCachedData.invoke(user);
-                    Object metaData = cachedDataGetMetaData.invoke(cachedData);
+                    Object metaData = resolveLuckPermsMetaData(luckPerms, user, cachedData);
+                    if (metaData == null) {
+                        return "";
+                    }
                     String prefix = (String) metaDataGetPrefix.invoke(metaData);
                     if (prefix != null && !prefix.isEmpty()) {
                         return prefix;
@@ -245,11 +319,17 @@ public class ChatListener {
         if (luckPermsAvailable) {
             try {
                 Object luckPerms = luckPermsProviderGet.invoke(null);
+                if (luckPerms == null) {
+                    return "";
+                }
                 Object userManager = luckPermsGetUserManager.invoke(luckPerms);
                 Object user = userManagerGetUser.invoke(userManager, playerId);
                 if (user != null) {
                     Object cachedData = userGetCachedData.invoke(user);
-                    Object metaData = cachedDataGetMetaData.invoke(cachedData);
+                    Object metaData = resolveLuckPermsMetaData(luckPerms, user, cachedData);
+                    if (metaData == null) {
+                        return "";
+                    }
                     String suffix = (String) metaDataGetSuffix.invoke(metaData);
                     if (suffix != null && !suffix.isEmpty()) {
                         return suffix;
