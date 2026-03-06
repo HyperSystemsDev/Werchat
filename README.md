@@ -1,9 +1,9 @@
 # Werchat
 
-[![Latest Release](https://img.shields.io/github/v/release/HyperSystemsDev/Werchat?label=version)](https://github.com/HyperSystemsDev/Werchat/releases)
+[![Latest Release](https://img.shields.io/github/v/release/HyperSystems-Development/Werchat?label=version)](https://github.com/HyperSystems-Development/Werchat/releases)
 [![License](https://img.shields.io/badge/license-GPLv3-green)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.com/invite/aZaa5vcFYh)
-[![GitHub Stars](https://img.shields.io/github/stars/HyperSystemsDev/Werchat?style=social)](https://github.com/HyperSystemsDev/Werchat)
+[![GitHub Stars](https://img.shields.io/github/stars/HyperSystems-Development/Werchat?style=social)](https://github.com/HyperSystems-Development/Werchat)
 
 **Channel-based chat system for Hytale servers.** Multiple channels, quick-chat routing, private messaging, nicknames, and moderation — all in one plugin.
 
@@ -432,9 +432,9 @@ If you need a manual override for testing, set an explicit version:
 ## Links
 
 - [Discord](https://discord.com/invite/aZaa5vcFYh) — Support & community
-- [Issues](https://github.com/HyperSystemsDev/Werchat/issues) — Bug reports & features
-- [Releases](https://github.com/HyperSystemsDev/Werchat/releases) — Downloads
+- [Issues](https://github.com/HyperSystems-Development/Werchat/issues) — Bug reports & features
+- [Releases](https://github.com/HyperSystems-Development/Werchat/releases) — Downloads
 
 ---
 
-Part of the **HyperSystems** suite: [HyperPerms](https://github.com/HyperSystemsDev/HyperPerms) | [HyperHomes](https://github.com/HyperSystemsDev/HyperHomes) | [HyperFactions](https://github.com/HyperSystemsDev/HyperFactions) | [Werchat](https://github.com/HyperSystemsDev/Werchat)
+Part of the **[HyperSystems](https://github.com/HyperSystems-Development)** suite: [HyperPerms](https://github.com/HyperSystems-Development/HyperPerms) | [HyperEssentials](https://github.com/HyperSystems-Development/HyperEssentials) | [HyperFactions](https://github.com/HyperSystems-Development/HyperFactions) | [Werchat](https://github.com/HyperSystems-Development/Werchat)
